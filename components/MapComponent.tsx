@@ -1,6 +1,4 @@
-
-
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Coordinate, AppMode, MapRotationMode, PickingMode } from '../types';
@@ -38,13 +36,15 @@ interface MapProps {
   rotationMode: MapRotationMode;
   onCenterChange: (center: Coordinate) => void;
   pickingTarget: PickingMode;
+  onRotateDelta?: (delta: number) => void;
 }
 
 const MapController: React.FC<{ 
   center: Coordinate, 
   mode: AppMode, 
   userPosition: Coordinate,
-}> = ({ center, mode, userPosition }) => {
+  pickingTarget: PickingMode
+}> = ({ center, mode, userPosition, pickingTarget }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -57,12 +57,15 @@ const MapController: React.FC<{
   }, [map]);
 
   useEffect(() => {
+    // FIX: If picking a location, DO NOT auto-pan to user. Allow free movement.
+    if (pickingTarget) return;
+
     if (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK) {
       map.panTo([userPosition.lat, userPosition.lng], { animate: true, duration: 0.5 });
     } else {
       map.panTo([center.lat, center.lng], { animate: true, duration: 0.5 });
     }
-  }, [center, mode, userPosition, map]);
+  }, [center, mode, userPosition, map, pickingTarget]);
 
   return null;
 };
@@ -98,15 +101,51 @@ const MapComponent: React.FC<MapProps> = ({
   onMapClick,
   rotationMode,
   onCenterChange,
-  pickingTarget
+  pickingTarget,
+  onRotateDelta
 }) => {
   
   const isHeadsUp = rotationMode === 'HEADS_UP';
-  // Show reticle in Planning Mode OR when picking a correction point
   const showReticle = mode === AppMode.PLANNING || pickingTarget === 'correction';
+  
+  // -- Gesture Handling State --
+  const touchStartAngle = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      // Calculate initial angle between two fingers
+      const angle = Math.atan2(touch2.pageY - touch1.pageY, touch2.pageX - touch1.pageX) * 180 / Math.PI;
+      touchStartAngle.current = angle;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStartAngle.current !== null && onRotateDelta) {
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const currentAngle = Math.atan2(touch2.pageY - touch1.pageY, touch2.pageX - touch1.pageX) * 180 / Math.PI;
+      
+      const delta = currentAngle - touchStartAngle.current;
+      onRotateDelta(delta);
+      
+      // Update start angle to prevent continuous spinning from one movement
+      touchStartAngle.current = currentAngle;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartAngle.current = null;
+  };
 
   return (
-    <div className="absolute inset-0 z-0 bg-black w-full h-full overflow-hidden flex items-center justify-center">
+    <div 
+      className="absolute inset-0 z-0 bg-black w-full h-full overflow-hidden flex items-center justify-center"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
         
         {/* Map Container */}
         <div 
@@ -131,7 +170,7 @@ const MapComponent: React.FC<MapProps> = ({
               maxZoom={19}
             />
             
-            <MapController center={center} mode={mode} userPosition={userPosition} />
+            <MapController center={center} mode={mode} userPosition={userPosition} pickingTarget={pickingTarget} />
             <MapEvents onLongPress={onLongPress} onMapClick={onMapClick} onCenterChange={onCenterChange} />
 
             {plannedRoute.length > 0 && (

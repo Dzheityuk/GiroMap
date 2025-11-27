@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { AppMode, SensorData, Language, PickingMode, MapRotationMode } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -83,10 +81,13 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <>
-      <div className="absolute bottom-0 left-0 right-0 z-[1000] flex flex-col pb-[env(safe-area-inset-bottom)]">
+      <div className="absolute bottom-0 left-0 right-0 z-[1000] flex flex-col">
         
-        {/* Glass Container */}
-        <div className="bg-black/40 backdrop-blur-xl border-t border-white/10 px-3 pb-4 pt-3 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+        {/* 
+            Glass Container.
+            FIX: padding-bottom includes safe-area-inset-bottom so background covers the whole bottom area.
+        */}
+        <div className="bg-black/40 backdrop-blur-xl border-t border-white/10 px-3 pt-3 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] pb-[calc(1rem+env(safe-area-inset-bottom))]">
             
             {/* Split Header: Row 1 - Status Info */}
             <div className="flex justify-between items-center mb-2 pb-2">
@@ -112,7 +113,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                </div>
             </div>
 
-            {/* Visual Divider to split functions from status */}
+            {/* Visual Divider */}
             <div className="h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent mb-3"></div>
 
             {/* Split Header: Row 2 - Navigation Tools */}

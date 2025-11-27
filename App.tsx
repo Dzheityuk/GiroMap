@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
@@ -213,6 +211,25 @@ const App: React.FC = () => {
     return null;
   };
 
+  // Helper function to fetch and set route from A to B
+  const updateRoute = async (start: Coordinate, end: Coordinate) => {
+    const routeUrl = `https://routing.openstreetmap.de/routed-foot/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
+    try {
+      const routeRes = await fetch(routeUrl);
+      const routeJson = await routeRes.json();
+
+      if (routeJson.routes && routeJson.routes.length > 0) {
+        const coords = routeJson.routes[0].geometry.coordinates.map((c: number[]) => ({
+          lat: c[1],
+          lng: c[0]
+        }));
+        setPlannedRoute(coords);
+      }
+    } catch (e) {
+      console.error("Route update failed", e);
+    }
+  };
+
   const handleRouteRequest = async () => {
     setIsSearching(true);
     setPlannedRoute([]);
@@ -238,18 +255,8 @@ const App: React.FC = () => {
       const endCoord = endResult.coord;
       setMapCenter(startCoord);
 
-      // Use routed-foot for pedestrian paths
-      const routeUrl = `https://routing.openstreetmap.de/routed-foot/route/v1/driving/${startCoord.lng},${startCoord.lat};${endCoord.lng},${endCoord.lat}?overview=full&geometries=geojson`;
-      const routeRes = await fetch(routeUrl);
-      const routeJson = await routeRes.json();
-
-      if (routeJson.routes && routeJson.routes.length > 0) {
-        const coords = routeJson.routes[0].geometry.coordinates.map((c: number[]) => ({
-          lat: c[1],
-          lng: c[0]
-        }));
-        setPlannedRoute(coords);
-      }
+      await updateRoute(startCoord, endCoord);
+      
       const context = await getDestinationInfo(endResult.displayName);
       setAiContext(context);
     } catch (e) {
@@ -263,14 +270,26 @@ const App: React.FC = () => {
     setIsSearching(true);
     const result = await geocodeAddress(address);
     if (result) {
-      setUserPosition(result.coord);
+      const newPos = result.coord;
+      setUserPosition(newPos);
+      
+      // Update visual path
       setWalkedPath(prev => {
         const newPath = [...prev];
-        if (newPath.length > 0) newPath[newPath.length - 1] = result.coord;
-        else newPath.push(result.coord);
+        if (newPath.length > 0) newPath[newPath.length - 1] = newPos;
+        else newPath.push(newPos);
         return newPath;
       });
-      setMapCenter(result.coord);
+      setMapCenter(newPos);
+
+      // --- REROUTE IF TRACKING ---
+      if (toAddress && (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK)) {
+          const endResult = await geocodeAddress(toAddress);
+          if (endResult) {
+             await updateRoute(newPos, endResult.coord);
+          }
+      }
+      
       setShowCorrectionModal(false);
       setCorrectionInput('');
     } else {
@@ -306,22 +325,31 @@ const App: React.FC = () => {
   // NEW: Handle snapping to map center during correction
   const handleConfirmCorrectionMapPick = async () => {
     // 1. Snap User Position to the Reticle (Map Center)
-    setUserPosition(mapCenter);
+    const newPos = mapCenter;
+    setUserPosition(newPos);
 
     // 2. Fix the path history to snap the line visually
     setWalkedPath(prev => {
       const newPath = [...prev];
-      if (newPath.length > 0) newPath[newPath.length - 1] = mapCenter;
-      else newPath.push(mapCenter);
+      if (newPath.length > 0) newPath[newPath.length - 1] = newPos;
+      else newPath.push(newPos);
       return newPath;
     });
+
+    // 3. --- REROUTE IF TRACKING ---
+    if (toAddress && (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK)) {
+        const endResult = await geocodeAddress(toAddress);
+        if (endResult) {
+            await updateRoute(newPos, endResult.coord);
+        }
+    }
     
-    // 3. Close picking mode
+    // 4. Close picking mode
     setPickingTarget(null);
     setCorrectionInput(''); // clear input
     
     // Optional: Reverse geocode silently to update address cache if needed
-    reverseGeocode(mapCenter).then(addr => {
+    reverseGeocode(newPos).then(addr => {
         // Just log or could update UI toast
     });
   };
@@ -399,6 +427,12 @@ const App: React.FC = () => {
         else newPath.push(coord);
         return newPath;
       });
+      // Reroute on long press
+      if (toAddress) {
+        geocodeAddress(toAddress).then(end => {
+           if (end) updateRoute(coord, end.coord);
+        });
+      }
     }
   };
   
@@ -406,6 +440,10 @@ const App: React.FC = () => {
     const currentRaw = headingRef.current;
     const newOffset = -currentRaw;
     setHeadingOffset(newOffset);
+  };
+
+  const handleManualRotation = (delta: number) => {
+    setHeadingOffset(prev => prev + delta);
   };
 
   const totalDistance = sensorData.steps * STEP_LENGTH;
@@ -431,21 +469,25 @@ const App: React.FC = () => {
         rotationMode={rotationMode}
         onCenterChange={handleCenterChange}
         pickingTarget={pickingTarget}
+        onRotateDelta={handleManualRotation}
       />
 
       <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)] z-[500]" />
       
-      {/* Floating "HERE" Button - Only visible during Correction Picking */}
+      {/* 
+         Floating "HERE" Button - Positioned on the RIGHT side 
+         Only visible during Correction Picking 
+      */}
       {pickingTarget === 'correction' && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-16 z-[1500] animate-in zoom-in duration-200">
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-[1500] animate-in slide-in-from-right duration-300">
            <button 
              onClick={handleConfirmCorrectionMapPick}
-             className="bg-orange-600 text-white font-handjet font-bold text-xl px-6 py-2 rounded-full shadow-[0_0_20px_rgba(255,69,0,0.6)] border border-white/20 uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform"
+             className="w-16 h-16 bg-orange-600 rounded-full border-4 border-black/50 shadow-[0_0_20px_rgba(255,69,0,0.8)] flex items-center justify-center hover:scale-110 transition-transform active:scale-95"
            >
-             {TRANSLATIONS[language].hereBtn}
+             <span className="font-handjet font-bold text-white text-xl uppercase tracking-widest leading-none">
+               {TRANSLATIONS[language].hereBtn}
+             </span>
            </button>
-           {/* Triangle pointer pointing down to dot */}
-           <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-orange-600 absolute left-1/2 -translate-x-1/2 -bottom-2"></div>
         </div>
       )}
 
@@ -500,7 +542,7 @@ const App: React.FC = () => {
         <div className="absolute bottom-10 left-0 right-0 z-[1000] flex justify-center pb-[env(safe-area-inset-bottom)]">
            <button 
              onClick={() => setPickingTarget(null)}
-             className="bg-neutral-900/80 backdrop-blur border border-white/20 text-white font-handjet px-8 py-2 rounded-full uppercase text-xl shadow-lg"
+             className="bg-neutral-900/80 backdrop-blur border border-white/20 text-white font-handjet px-8 py-2 rounded-full uppercase text-xl shadow-lg hover:bg-neutral-800"
            >
              {TRANSLATIONS[language].cancel}
            </button>
