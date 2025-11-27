@@ -40,13 +40,29 @@ interface MapProps {
 const MapController: React.FC<{ center: Coordinate, mode: AppMode, userPosition: Coordinate }> = ({ center, mode, userPosition }) => {
   const map = useMap();
 
+  // Force Leaflet to recalculate container size. 
+  // This fixes the issue where the center is offset because the address bar changed size
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    resizeObserver.observe(map.getContainer());
+    
+    // Initial invalidation just in case
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+
+    return () => resizeObserver.disconnect();
+  }, [map]);
+
   useEffect(() => {
     // In tracking mode, follow the user
     if (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK) {
-      map.panTo([userPosition.lat, userPosition.lng], { animate: true });
+      map.panTo([userPosition.lat, userPosition.lng], { animate: true, duration: 0.5 });
     } else {
       // In planning mode, respect the passed center
-      map.panTo([center.lat, center.lng], { animate: true });
+      map.panTo([center.lat, center.lng], { animate: true, duration: 0.5 });
     }
   }, [center, mode, userPosition, map]);
 
@@ -76,7 +92,7 @@ const MapComponent: React.FC<MapProps> = ({
   onMapClick
 }) => {
   return (
-    <div className="absolute inset-0 z-0 bg-black">
+    <div className="absolute inset-0 z-0 bg-black w-full h-full">
         <MapContainer 
           center={[center.lat, center.lng]} 
           zoom={17} 

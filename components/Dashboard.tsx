@@ -76,7 +76,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <>
-      <div className="absolute bottom-0 left-0 right-0 z-[1000] flex flex-col">
+      <div className="absolute bottom-0 left-0 right-0 z-[1000] flex flex-col pb-[env(safe-area-inset-bottom)]">
         
         {/* Transparent Glass Container */}
         <div className="bg-black/40 backdrop-blur-xl border-t border-white/10 px-3 pb-4 pt-3 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
@@ -202,7 +202,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               value={correctionInput}
               onChange={(e) => setCorrectionInput(e.target.value)}
               placeholder={t.placeholderAddr}
-              // REMOVED focus:border-orange-500, Added focus:border-white
               className="w-full bg-black border border-neutral-600 text-white text-base p-2 rounded-lg mb-3 focus:border-white focus:outline-none uppercase"
             />
             

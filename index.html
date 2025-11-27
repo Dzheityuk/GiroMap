@@ -38,10 +38,13 @@
       .leaflet-container {
         background: #000 !important;
         font-family: 'Ubuntu Mono', monospace;
+        width: 100%;
+        height: 100%;
       }
       .leaflet-control-attribution {
         background: rgba(0,0,0,0.5) !important;
         color: #666 !important;
+        font-size: 8px !important;
       }
       .leaflet-bar a {
         background-color: #000 !important;
@@ -55,7 +58,13 @@
       }
       
       /* IOS VIEWPORT FIX: Force fixed positioning to avoid Safari bottom bar scrolling issues */
-      html, body {
+      html {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+      
+      body {
         height: 100%;
         width: 100%;
         margin: 0;
@@ -72,6 +81,8 @@
       #root {
         height: 100%;
         width: 100%;
+        position: absolute;
+        inset: 0;
       }
 
       /* --- FONTS --- */
