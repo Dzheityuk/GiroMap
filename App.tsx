@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
 import SearchBar from './components/SearchBar';
-import { AppMode, Coordinate, SensorData, SearchResult, Language, PickingMode } from './types';
+import { AppMode, Coordinate, SensorData, SearchResult, Language, PickingMode, MapRotationMode } from './types';
 import { calculateNewPosition, reverseGeocode } from './services/geoUtils';
 import { getDestinationInfo } from './services/geminiService';
 import { DEFAULT_CENTER, STEP_LENGTH, MOTION_THRESHOLD, TRANSLATIONS } from './constants';
@@ -27,6 +28,9 @@ const App: React.FC = () => {
   const [sensorData, setSensorData] = useState<SensorData>({ steps: 0, heading: 0, isWalking: false });
   const [permissionsGranted, setPermissionsGranted] = useState<boolean>(false);
   const [headingOffset, setHeadingOffset] = useState<number>(0); // Calibration offset
+
+  // Display Mode
+  const [rotationMode, setRotationMode] = useState<MapRotationMode>('NORTH_UP');
 
   // UI
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -122,7 +126,7 @@ const App: React.FC = () => {
   }, [headingOffset]);
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
-    if (mode !== AppMode.TRACKING) return;
+    if (mode !== AppMode.TRACKING && mode !== AppMode.BACKTRACK) return;
     
     const acc = event.accelerationIncludingGravity;
     if (!acc || !acc.x || !acc.y || !acc.z) return;
@@ -301,6 +305,21 @@ const App: React.FC = () => {
     setShowCorrectionModal(false); // Close modal to see map
     setPickingTarget('correction'); // Enter map picking mode
   };
+  
+  // Track center for "I'm Here" functionality
+  const handleCenterChange = (center: Coordinate) => {
+    // Only update if not in tracking mode (performance)
+    if (mode === AppMode.PLANNING) {
+      setMapCenter(center);
+    }
+  };
+  
+  const handleImHere = async () => {
+    setUserPosition(mapCenter);
+    // Reverse geocode this center to fill "From"
+    const addr = await reverseGeocode(mapCenter);
+    setFromAddress(addr);
+  };
 
   // --- Logic: App State ---
   const handleStart = () => {
@@ -310,7 +329,21 @@ const App: React.FC = () => {
   };
 
   const handleStop = () => {
+    // Just finish
     setMode(AppMode.BACKTRACK);
+  };
+  
+  const handleReturn = () => {
+     setMode(AppMode.TRACKING); // Go back to tracking, but path is reversed? 
+     // Requirement: "Return along route".
+     // Simplest way: Make the walked path the new "Planned Route" (reversed), clear walked path, and start new tracking.
+     
+     const pathBack = [...walkedPath].reverse();
+     setPlannedRoute(pathBack);
+     setWalkedPath([userPosition]); // Start new tracking
+     setMode(AppMode.TRACKING); 
+     // Optionally set Target Address to "START POINT"
+     setToAddress(fromAddress || "START");
   };
 
   const handleReset = () => {
@@ -322,6 +355,7 @@ const App: React.FC = () => {
     setToAddress('');
     setAiContext('');
     setHeadingOffset(0);
+    setRotationMode('NORTH_UP');
   };
 
   const handleToggleGps = () => {
@@ -330,6 +364,10 @@ const App: React.FC = () => {
 
   const handleToggleLanguage = () => {
     setLanguage(prev => prev === 'RU' ? 'EN' : 'RU');
+  };
+
+  const handleToggleRotation = () => {
+    setRotationMode(prev => prev === 'NORTH_UP' ? 'HEADS_UP' : 'NORTH_UP');
   };
 
   const handleLongPress = (coord: Coordinate) => {
@@ -346,34 +384,14 @@ const App: React.FC = () => {
   
   // --- Calibration Logic ---
   const handleCalibrate = () => {
-    // Idea: Point phone along the route and click calibrate.
-    // Logic: Calculate bearing from current position to next route point (or end).
-    // Set offset so displayed heading matches that bearing.
+    // Requirement: "at press of button, arrow points straight (direction person looks)"
+    // If user is looking straight, and phone sensor says X degrees.
+    // We want the APP to show 0 degrees (Up/North on map or Straight in heads up).
+    // So displayedHeading = (raw + offset) % 360  =>  0 = raw + offset  => offset = -raw.
     
-    let targetBearing = 0;
-    
-    if (plannedRoute.length > 1) {
-      // Find closest point on route or just look at the last point? 
-      // Simple approach: Use bearing to destination from current pos.
-      // Better approach for walking: Bearing from Start to End?
-      // Best "Snap" approach: Bearing to the LAST point in planned route.
-      // (Assuming user points phone at destination)
-      const target = plannedRoute[plannedRoute.length - 1];
-      
-      // Calculate bearing from userPosition to target
-      const y = Math.sin((target.lng - userPosition.lng) * Math.PI / 180) * Math.cos(target.lat * Math.PI / 180);
-      const x = Math.cos(userPosition.lat * Math.PI / 180) * Math.sin(target.lat * Math.PI / 180) -
-                Math.sin(userPosition.lat * Math.PI / 180) * Math.cos(target.lat * Math.PI / 180) * Math.cos((target.lng - userPosition.lng) * Math.PI / 180);
-      targetBearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-    }
-    
-    // Set offset: target = current + offset  => offset = target - current
     const currentRaw = headingRef.current;
-    const newOffset = targetBearing - currentRaw;
+    const newOffset = -currentRaw;
     setHeadingOffset(newOffset);
-    
-    // Alert user (visual feedback would be better but toast is missing)
-    // alert(language === 'RU' ? "Компас откалиброван по маршруту" : "Compass aligned to route");
   };
 
   // Calculate Distance Walked
@@ -400,6 +418,8 @@ const App: React.FC = () => {
         mode={mode}
         onLongPress={handleLongPress}
         onMapClick={handleMapClick}
+        rotationMode={rotationMode}
+        onCenterChange={handleCenterChange}
       />
 
       <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)] z-[500]" />
@@ -427,6 +447,7 @@ const App: React.FC = () => {
         onStart={handleStart}
         onStop={handleStop}
         onReset={handleReset}
+        onReturn={handleReturn}
         onRequestPermissions={requestPermissions}
         permissionsGranted={permissionsGranted}
         onCorrectionSubmit={handleCorrectionSubmit}
@@ -440,6 +461,9 @@ const App: React.FC = () => {
         setCorrectionInput={setCorrectionInput}
         onPickCorrectionOnMap={handlePickCorrectionOnMap}
         onCalibrate={handleCalibrate}
+        onImHere={handleImHere}
+        rotationMode={rotationMode}
+        onToggleRotation={handleToggleRotation}
       />
     </div>
   );

@@ -1,4 +1,5 @@
 
+
 // Earth radius in meters
 export const EARTH_RADIUS = 6378137;
 
@@ -26,6 +27,7 @@ export const TRANSLATIONS = {
     start: 'ПОЕХАЛИ',
     correct: 'Я ЗДЕСЬ',
     stop: 'СТОП',
+    return: 'НАЗАД',
     finished: 'Маршрут завершен',
     newRoute: 'НОВЫЙ МАРШРУТ',
     correctionTitle: 'Коррекция Позиции',
@@ -44,14 +46,18 @@ export const TRANSLATIONS = {
     pickOnMapBtn: 'УКАЗАТЬ НА КАРТЕ',
     tapMapHint: 'НАЖМИТЕ НА КАРТУ ДЛЯ ВЫБОРА',
     stopConfirmTitle: 'ЗАВЕРШИТЬ?',
-    stopConfirmDesc: 'Вы уверены, что хотите закончить маршрут?',
-    yes: 'ДА',
-    no: 'НЕТ',
+    stopConfirmDesc: 'Завершить или вернуться по следам?',
+    yes: 'ЗАВЕРШИТЬ',
+    no: 'ОТМЕНА',
     gpsOn: 'GPS: ВКЛ',
     gpsOff: 'GPS: ВЫКЛ',
     geoError: 'Не удалось найти точку назначения',
     correctionError: 'Не удалось найти адрес для коррекции',
-    byAuthor: 'BY DZHEITYUK'
+    byAuthor: 'BY DZHEITYUK',
+    imHere: 'Я ТУТ',
+    calib: 'КАЛИБР',
+    modeNorth: 'СЕВЕР',
+    modeHead: 'КУРС'
   },
   EN: {
     dist: 'Distance',
@@ -63,6 +69,7 @@ export const TRANSLATIONS = {
     start: 'LET\'S GO',
     correct: 'I AM HERE',
     stop: 'STOP',
+    return: 'RETURN',
     finished: 'Route Finished',
     newRoute: 'NEW ROUTE',
     correctionTitle: 'Position Correction',
@@ -81,13 +88,17 @@ export const TRANSLATIONS = {
     pickOnMapBtn: 'PICK ON MAP',
     tapMapHint: 'TAP MAP TO SELECT LOCATION',
     stopConfirmTitle: 'FINISH ROUTE?',
-    stopConfirmDesc: 'Are you sure you want to stop tracking?',
-    yes: 'YES',
-    no: 'NO',
+    stopConfirmDesc: 'Finish or Backtrack?',
+    yes: 'FINISH',
+    no: 'CANCEL',
     gpsOn: 'GPS: ON',
     gpsOff: 'GPS: OFF',
     geoError: 'Failed to find destination',
     correctionError: 'Failed to find correction address',
-    byAuthor: 'BY DZHEITYUK'
+    byAuthor: 'BY DZHEITYUK',
+    imHere: 'I\'M HERE',
+    calib: 'CALIB',
+    modeNorth: 'NORTH',
+    modeHead: 'HEAD'
   }
 };

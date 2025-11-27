@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { AppMode, SensorData, Language, PickingMode } from '../types';
+import { AppMode, SensorData, Language, PickingMode, MapRotationMode } from '../types';
 import { TRANSLATIONS } from '../constants';
 
 interface DashboardProps {
@@ -12,6 +12,7 @@ interface DashboardProps {
   onStart: () => void;
   onStop: () => void;
   onReset: () => void;
+  onReturn: () => void; // New prop for backtracking
   onRequestPermissions: () => void;
   permissionsGranted: boolean;
   onCorrectionSubmit: (address: string) => void;
@@ -27,8 +28,11 @@ interface DashboardProps {
   setCorrectionInput: (val: string) => void;
   onPickCorrectionOnMap: () => void;
   
-  // Calibration
+  // Calibration & Tools
   onCalibrate: () => void;
+  onImHere: () => void; // New prop
+  rotationMode: MapRotationMode; // New prop
+  onToggleRotation: () => void; // New prop
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -40,6 +44,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   onStart,
   onStop,
   onReset,
+  onReturn,
   onRequestPermissions,
   permissionsGranted,
   onCorrectionSubmit,
@@ -52,7 +57,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   correctionInput,
   setCorrectionInput,
   onPickCorrectionOnMap,
-  onCalibrate
+  onCalibrate,
+  onImHere,
+  rotationMode,
+  onToggleRotation
 }) => {
   const [showStopConfirmModal, setShowStopConfirmModal] = useState(false);
 
@@ -73,6 +81,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     setShowStopConfirmModal(false);
     onStop();
   };
+  
+  const handleReturnClick = () => {
+    setShowStopConfirmModal(false);
+    onReturn();
+  };
 
   return (
     <>
@@ -84,30 +97,49 @@ const Dashboard: React.FC<DashboardProps> = ({
             {/* Header: AI Context + Toggles */}
             <div className="flex justify-between items-start mb-2">
               {aiContext ? (
-                <div className="text-xs font-mono text-cyan-400/80 border-l border-cyan-500/50 pl-2 max-w-[55%] leading-none tracking-wide">
+                <div className="text-xs font-mono text-cyan-400/80 border-l border-cyan-500/50 pl-2 max-w-[45%] leading-none tracking-wide">
                   {aiContext.toUpperCase()}
                 </div>
               ) : <div />}
               
-              <div className="flex gap-2 font-handjet">
+              <div className="flex gap-1 font-handjet flex-wrap justify-end max-w-[60%]">
+                 {/* Map Rotation Toggle */}
+                 <button 
+                  onClick={onToggleRotation}
+                  className="px-2 py-0.5 text-base font-bold border border-white/20 text-white bg-white/5 rounded uppercase hover:bg-white/10 tracking-widest flex items-center gap-1"
+                  title="Toggle Map Rotation"
+                >
+                  {rotationMode === 'NORTH_UP' ? 'N' : '↻'}
+                </button>
+
+                 {/* Im Here Button (Planning Only) */}
+                 {mode === AppMode.PLANNING && (
+                   <button 
+                    onClick={onImHere}
+                    className="px-2 py-0.5 text-base font-bold border border-orange-500/50 text-orange-400 bg-white/5 rounded uppercase hover:bg-white/10 tracking-widest"
+                  >
+                    {t.imHere}
+                  </button>
+                 )}
+
                 <button 
                   onClick={onCalibrate}
-                  className="px-2 py-0.5 text-lg font-bold border border-yellow-500/50 text-yellow-400 bg-white/5 rounded uppercase hover:bg-white/10 tracking-widest"
-                  title="Align Compass to Route"
+                  className="px-2 py-0.5 text-base font-bold border border-yellow-500/50 text-yellow-400 bg-white/5 rounded uppercase hover:bg-white/10 tracking-widest"
+                  title="Align Compass"
                 >
-                  {language === 'RU' ? 'КАЛИБР' : 'CALIB'}
+                  {t.calib}
                 </button>
                 <button 
                   onClick={onToggleLanguage}
-                  className="px-2 py-0.5 text-lg font-bold border border-white/20 bg-white/5 text-white rounded uppercase hover:bg-white/10 tracking-widest"
+                  className="px-2 py-0.5 text-base font-bold border border-white/20 bg-white/5 text-white rounded uppercase hover:bg-white/10 tracking-widest"
                 >
                   {language}
                 </button>
                 <button 
                   onClick={onToggleGps}
-                  className={`px-2 py-0.5 text-lg font-bold border ${gpsEnabled ? 'border-green-500/50 text-green-400' : 'border-red-500/50 text-red-400'} bg-white/5 rounded uppercase tracking-widest`}
+                  className={`px-2 py-0.5 text-base font-bold border ${gpsEnabled ? 'border-green-500/50 text-green-400' : 'border-red-500/50 text-red-400'} bg-white/5 rounded uppercase tracking-widest`}
                 >
-                  {gpsEnabled ? t.gpsOn : t.gpsOff}
+                  {gpsEnabled ? 'GPS' : 'OFF'}
                 </button>
               </div>
             </div>
@@ -151,7 +183,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                   {mode === AppMode.PLANNING && (
                     <button 
                       onClick={onStart}
-                      className="w-full bg-white text-black font-bold py-3 rounded-lg uppercase text-xl tracking-widest hover:bg-gray-200 transition-colors shadow-lg"
+                      disabled={!targetAddress} // DISABLE IF NO TARGET
+                      className={`w-full font-bold py-3 rounded-lg uppercase text-xl tracking-widest transition-colors shadow-lg
+                        ${!targetAddress 
+                          ? 'bg-neutral-800 text-gray-600 cursor-not-allowed border border-white/5' 
+                          : 'bg-white text-black hover:bg-gray-200'}`}
                     >
                       {t.start}
                     </button>
@@ -246,19 +282,27 @@ const Dashboard: React.FC<DashboardProps> = ({
             <p className="text-gray-400 text-base mb-6 text-center uppercase tracking-wide">
               {t.stopConfirmDesc}
             </p>
-            <div className="flex gap-4 font-handjet">
+            <div className="flex flex-col gap-2 font-handjet">
               <button
-                onClick={() => setShowStopConfirmModal(false)}
-                className="flex-1 bg-neutral-800 text-white py-3 rounded-lg uppercase text-xl font-bold hover:bg-neutral-700 transition-colors"
+                onClick={handleReturnClick}
+                className="w-full bg-white text-black py-3 rounded-lg uppercase text-xl font-bold hover:bg-gray-200 transition-colors shadow-lg"
               >
-                {t.no}
+                {t.return}
               </button>
-              <button
-                onClick={confirmStop}
-                className="flex-1 bg-red-600 text-white py-3 rounded-lg uppercase text-xl font-bold hover:bg-red-700 transition-colors shadow-lg"
-              >
-                {t.yes}
-              </button>
+              <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowStopConfirmModal(false)}
+                    className="flex-1 bg-neutral-800 text-white py-3 rounded-lg uppercase text-xl font-bold hover:bg-neutral-700 transition-colors"
+                  >
+                    {t.no}
+                  </button>
+                  <button
+                    onClick={confirmStop}
+                    className="flex-1 bg-red-600 text-white py-3 rounded-lg uppercase text-xl font-bold hover:bg-red-700 transition-colors shadow-lg"
+                  >
+                    {t.yes}
+                  </button>
+              </div>
             </div>
           </div>
         </div>
