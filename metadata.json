@@ -1,0 +1,7 @@
+{
+  "name": "GiroMap Web",
+  "description": "Monochrome Dead Reckoning Navigation. Simulates pedestrian tracking using device sensors without continuous GPS updates.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

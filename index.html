@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Dead Reckoning Pedestrian Navigation" />
+    
+    <title>GiroMap</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Import Fonts: Audiowide, Handjet, Ubuntu Mono, Gemunu Libre, Pixelify Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Handjet:wght@100..900&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400&family=Gemunu+Libre:wght@200..800&family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+    
+    <style>
+      /* Custom scrollbar to match monochrome theme */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #000;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 3px;
+      }
+      /* Leaflet dark mode overrides */
+      .leaflet-container {
+        background: #000 !important;
+        font-family: 'Ubuntu Mono', monospace;
+      }
+      .leaflet-control-attribution {
+        background: rgba(0,0,0,0.5) !important;
+        color: #666 !important;
+      }
+      .leaflet-bar a {
+        background-color: #000 !important;
+        color: #fff !important;
+        border-bottom: 1px solid #333 !important;
+      }
+      
+      /* MAP INVERSION FILTER */
+      .invert-map .leaflet-tile-pane {
+        filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+      }
+      
+      body {
+        background-color: black;
+        color: white;
+        overflow: hidden;
+        overscroll-behavior: none; /* Prevent pull-to-refresh on mobile */
+        font-family: 'Ubuntu Mono', monospace;
+      }
+
+      /* --- FONTS --- */
+      .font-audiowide { font-family: 'Audiowide', cursive; }
+      .font-handjet { font-family: 'Handjet', monospace; } /* Used for Buttons & Numbers */
+      .font-mono { font-family: 'Ubuntu Mono', monospace; } /* Used for General Text */
+      .font-gemunu { font-family: 'Gemunu Libre', sans-serif; } /* Splash Title */
+      .font-pixelify { font-family: 'Pixelify Sans', sans-serif; } /* Splash Author */
+
+      /* --- GLITCH EFFECT CSS (Reduced Intensity) --- */
+      .glitch {
+        position: relative;
+        color: white;
+        font-size: 4rem; /* Base size */
+      }
+
+      .glitch::before,
+      .glitch::after {
+        content: attr(data-text);
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .glitch::before {
+        left: 1px;
+        text-shadow: -1px 0 #ff00c1;
+        clip: rect(44px, 450px, 56px, 0);
+        animation: glitch-anim 5s infinite linear alternate-reverse;
+      }
+
+      .glitch::after {
+        left: -1px;
+        text-shadow: -1px 0 #00fff9;
+        clip: rect(44px, 450px, 56px, 0);
+        animation: glitch-anim-2 5s infinite linear alternate-reverse;
+      }
+
+      /* Toned down animations (less skew, simpler clips) */
+      @keyframes glitch-anim {
+        0% { clip: rect(31px, 9999px, 94px, 0); transform: skew(0.15deg); }
+        5% { clip: rect(70px, 9999px, 11px, 0); transform: skew(0.01deg); }
+        10% { clip: rect(6px, 9999px, 83px, 0); transform: skew(0.05deg); }
+        15% { clip: rect(96px, 9999px, 2px, 0); transform: skew(0.14deg); }
+        20% { clip: rect(62px, 9999px, 45px, 0); transform: skew(0.11deg); }
+        25% { clip: rect(34px, 9999px, 12px, 0); transform: skew(0.09deg); }
+        30% { clip: rect(8px, 9999px, 56px, 0); transform: skew(0.02deg); }
+        35% { clip: rect(54px, 9999px, 95px, 0); transform: skew(0.13deg); }
+        40% { clip: rect(22px, 9999px, 31px, 0); transform: skew(0.17deg); }
+        45% { clip: rect(78px, 9999px, 64px, 0); transform: skew(0.05deg); }
+        50% { clip: rect(11px, 9999px, 88px, 0); transform: skew(0.15deg); }
+        55% { clip: rect(46px, 9999px, 19px, 0); transform: skew(0.02deg); }
+        60% { clip: rect(91px, 9999px, 42px, 0); transform: skew(0.18deg); }
+        65% { clip: rect(27px, 9999px, 73px, 0); transform: skew(0.11deg); }
+        70% { clip: rect(59px, 9999px, 6px, 0); transform: skew(0.19deg); }
+        75% { clip: rect(3px, 9999px, 51px, 0); transform: skew(0.03deg); }
+        80% { clip: rect(84px, 9999px, 97px, 0); transform: skew(0.02deg); }
+        85% { clip: rect(15px, 9999px, 28px, 0); transform: skew(0.12deg); }
+        90% { clip: rect(67px, 9999px, 82px, 0); transform: skew(0.18deg); }
+        95% { clip: rect(39px, 9999px, 7px, 0); transform: skew(0.01deg); }
+        100% { clip: rect(93px, 9999px, 55px, 0); transform: skew(0.14deg); }
+      }
+
+      @keyframes glitch-anim-2 {
+        0% { clip: rect(65px, 9999px, 100px, 0); transform: skew(0.05deg); }
+        5% { clip: rect(12px, 9999px, 43px, 0); transform: skew(0.17deg); }
+        10% { clip: rect(88px, 9999px, 21px, 0); transform: skew(0.14deg); }
+        15% { clip: rect(5px, 9999px, 76px, 0); transform: skew(0.02deg); }
+        20% { clip: rect(53px, 9999px, 15px, 0); transform: skew(0.08deg); }
+        25% { clip: rect(29px, 9999px, 92px, 0); transform: skew(0.13deg); }
+        30% { clip: rect(74px, 9999px, 58px, 0); transform: skew(0.01deg); }
+        35% { clip: rect(9px, 9999px, 34px, 0); transform: skew(0.16deg); }
+        40% { clip: rect(96px, 9999px, 6px, 0); transform: skew(0.09deg); }
+        45% { clip: rect(41px, 9999px, 85px, 0); transform: skew(0.12deg); }
+        50% { clip: rect(18px, 9999px, 50px, 0); transform: skew(0.08deg); }
+        55% { clip: rect(61px, 9999px, 27px, 0); transform: skew(0.15deg); }
+        60% { clip: rect(83px, 9999px, 94px, 0); transform: skew(0.09deg); }
+        65% { clip: rect(36px, 9999px, 11px, 0); transform: skew(0.12deg); }
+        70% { clip: rect(2px, 9999px, 69px, 0); transform: skew(0.11deg); }
+        75% { clip: rect(48px, 9999px, 38px, 0); transform: skew(0.07deg); }
+        80% { clip: rect(92px, 9999px, 79px, 0); transform: skew(0.15deg); }
+        85% { clip: rect(24px, 9999px, 63px, 0); transform: skew(0.04deg); }
+        90% { clip: rect(57px, 9999px, 17px, 0); transform: skew(0.05deg); }
+        95% { clip: rect(10px, 9999px, 99px, 0); transform: skew(0.18deg); }
+        100% { clip: rect(71px, 9999px, 47px, 0); transform: skew(0.05deg); }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^18.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^18.2.0/",
+    "react/": "https://aistudiocdn.com/react@^18.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react-leaflet": "https://aistudiocdn.com/react-leaflet@^4.2.1",
+    "leaflet/": "https://aistudiocdn.com/leaflet@^1.9.4/",
+    "leaflet": "https://aistudiocdn.com/leaflet@^1.9.4"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
