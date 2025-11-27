@@ -55,6 +55,7 @@ export const TRANSLATIONS = {
     correctionError: 'Не удалось найти адрес для коррекции',
     byAuthor: 'BY DZHEITYUK',
     imHere: 'Я ТУТ',
+    toHere: 'СЮДА',
     calib: 'КАЛИБР',
     modeNorth: 'СЕВЕР',
     modeHead: 'КУРС'
@@ -97,6 +98,7 @@ export const TRANSLATIONS = {
     correctionError: 'Failed to find correction address',
     byAuthor: 'BY DZHEITYUK',
     imHere: 'I\'M HERE',
+    toHere: 'TO HERE',
     calib: 'CALIB',
     modeNorth: 'NORTH',
     modeHead: 'HEAD'

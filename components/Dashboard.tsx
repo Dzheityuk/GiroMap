@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { AppMode, SensorData, Language, PickingMode, MapRotationMode } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -27,6 +28,7 @@ interface DashboardProps {
   onPickCorrectionOnMap: () => void;
   onCalibrate: () => void;
   onImHere: () => void;
+  onToHere: () => void;
   rotationMode: MapRotationMode;
   onToggleRotation: () => void;
 }
@@ -55,6 +57,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   onPickCorrectionOnMap,
   onCalibrate,
   onImHere,
+  onToHere,
   rotationMode,
   onToggleRotation
 }) => {
@@ -129,14 +132,22 @@ const Dashboard: React.FC<DashboardProps> = ({
                   {t.calib}
                 </button>
 
-                 {/* Im Here Button (Planning Only) */}
+                 {/* Im Here / To Here Buttons (Planning Only) */}
                  {mode === AppMode.PLANNING ? (
-                   <button 
-                    onClick={onImHere}
-                    className="py-1 text-sm font-bold border border-orange-500/50 text-orange-400 bg-white/5 rounded uppercase font-handjet tracking-widest"
-                  >
-                    {t.imHere}
-                  </button>
+                   <div className="flex gap-1">
+                      <button 
+                        onClick={onImHere}
+                        className="flex-1 py-1 text-xs font-bold border border-orange-500/50 text-orange-400 bg-white/5 rounded uppercase font-handjet tracking-wider"
+                      >
+                        {t.imHere}
+                      </button>
+                      <button 
+                        onClick={onToHere}
+                        className="flex-1 py-1 text-xs font-bold border border-blue-500/50 text-blue-400 bg-white/5 rounded uppercase font-handjet tracking-wider"
+                      >
+                        {t.toHere}
+                      </button>
+                   </div>
                  ) : <div />}
             </div>
 

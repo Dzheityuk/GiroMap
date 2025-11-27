@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
@@ -320,6 +321,14 @@ const App: React.FC = () => {
     setMapCenter(mapCenter);
   };
 
+  // Logic: "To Here" sets the current map center as the Destination (Point B)
+  const handleToHere = async () => {
+    // 1. Get Address of the crosshair
+    const addr = await reverseGeocode(mapCenter);
+    // 2. Set as Point B (To)
+    setToAddress(addr);
+  };
+
   const handleStart = () => {
     setMode(AppMode.TRACKING);
     setWalkedPath([userPosition]);
@@ -435,6 +444,7 @@ const App: React.FC = () => {
         onPickCorrectionOnMap={handlePickCorrectionOnMap}
         onCalibrate={handleCalibrate}
         onImHere={handleImHere}
+        onToHere={handleToHere}
         rotationMode={rotationMode}
         onToggleRotation={handleToggleRotation}
       />
