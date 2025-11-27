@@ -1,11 +1,10 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Coordinate, AppMode, MapRotationMode } from '../types';
 import { TILE_LAYER_URL, TILE_ATTRIBUTION } from '../constants';
 
-// Fix Leaflet icon issue by using CDN URLs directly
 const DefaultIcon = L.icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
@@ -15,9 +14,9 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Custom Arrow Icon for User
 const createArrowIcon = (heading: number, isHeadsUp: boolean) => L.divIcon({
-  // If Heads Up, arrow is always up (0 deg), else it follows heading
+  // In Heads Up mode, the MAP rotates, so the arrow stays fixed UP (0 deg).
+  // In North Up mode, the MAP is fixed, so the arrow rotates to the heading.
   html: `<div style="transform: rotate(${isHeadsUp ? 0 : heading}deg); width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 2L2 22L12 18L22 22L12 2Z" fill="#FF4500" stroke="white" stroke-width="2"/>
@@ -48,30 +47,19 @@ const MapController: React.FC<{
 }> = ({ center, mode, userPosition }) => {
   const map = useMap();
 
-  // Force Leaflet to recalculate container size. 
   useEffect(() => {
     const resizeObserver = new ResizeObserver(() => {
       map.invalidateSize();
     });
     resizeObserver.observe(map.getContainer());
-    
-    // Initial invalidation just in case
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 100);
-
+    setTimeout(() => { map.invalidateSize(); }, 100);
     return () => resizeObserver.disconnect();
   }, [map]);
 
   useEffect(() => {
-    // In tracking mode, follow the user
     if (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK) {
       map.panTo([userPosition.lat, userPosition.lng], { animate: true, duration: 0.5 });
     } else {
-      // In planning mode, respect the passed center ONLY if it drastically changes 
-      // (Optimization to allow panning)
-      // Actually, standard practice: only pan if explicit external center change. 
-      // But here we rely on the App.tsx state.
       map.panTo([center.lat, center.lng], { animate: true, duration: 0.5 });
     }
   }, [center, mode, userPosition, map]);
@@ -115,11 +103,11 @@ const MapComponent: React.FC<MapProps> = ({
   const isHeadsUp = rotationMode === 'HEADS_UP';
 
   return (
-    <div className="absolute inset-0 z-0 bg-black w-full h-full overflow-hidden">
+    <div className="absolute inset-0 z-0 bg-black w-full h-full overflow-hidden flex items-center justify-center">
         
-        {/* The Map Container with CSS Rotation for Heads Up Mode */}
+        {/* Map Container. CSS Transform handles rotation. Increased duration for weight. */}
         <div 
-           className="w-full h-full transition-transform duration-300 ease-out will-change-transform"
+           className="w-full h-full transition-transform duration-700 ease-out will-change-transform"
            style={{ 
              transform: isHeadsUp ? `rotate(${-heading}deg)` : 'rotate(0deg)',
              transformOrigin: 'center center' 
@@ -141,7 +129,6 @@ const MapComponent: React.FC<MapProps> = ({
             <MapController center={center} mode={mode} userPosition={userPosition} />
             <MapEvents onLongPress={onLongPress} onMapClick={onMapClick} onCenterChange={onCenterChange} />
 
-            {/* Planned Route - Gray Line */}
             {plannedRoute.length > 0 && (
               <Polyline 
                 positions={plannedRoute.map(c => [c.lat, c.lng])} 
@@ -149,7 +136,6 @@ const MapComponent: React.FC<MapProps> = ({
               />
             )}
 
-            {/* Walked Path - Orange Line (High Contrast) */}
             {walkedPath.length > 0 && (
               <Polyline 
                 positions={walkedPath.map(c => [c.lat, c.lng])} 
@@ -157,14 +143,12 @@ const MapComponent: React.FC<MapProps> = ({
               />
             )}
 
-            {/* User Marker */}
             <Marker 
               position={[userPosition.lat, userPosition.lng]} 
               icon={createArrowIcon(heading, isHeadsUp)} 
               zIndexOffset={1000}
             />
 
-            {/* Destination Marker */}
             {plannedRoute.length > 0 && (
               <Marker position={[plannedRoute[plannedRoute.length - 1].lat, plannedRoute[plannedRoute.length - 1].lng]} />
             )}
@@ -172,9 +156,8 @@ const MapComponent: React.FC<MapProps> = ({
           </MapContainer>
         </div>
         
-        {/* Center Dot (Reticle) - Visible only in Planning Mode */}
         {mode === AppMode.PLANNING && (
-          <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-white rounded-full z-[999] -translate-x-1/2 -translate-y-1/2 shadow-[0_0_4px_rgba(0,0,0,0.8)] pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-white rounded-full z-[999] -translate-x-1/2 -translate-y-1/2 shadow-[0_0_4px_rgba(255,255,255,0.8)] pointer-events-none" />
         )}
     </div>
   );

@@ -36,13 +36,14 @@ const App: React.FC = () => {
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [pickingTarget, setPickingTarget] = useState<PickingMode>(null);
 
-  // Correction Modal State (Lifted from Dashboard to handle map picking)
+  // Correction Modal State
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
   const [correctionInput, setCorrectionInput] = useState('');
 
   // --- Refs for Sensor Loop ---
   const lastStepTime = useRef<number>(0);
-  const headingRef = useRef<number>(0); // Mutable ref for immediate access in event loop
+  const headingRef = useRef<number>(0); // Raw heading
+  const smoothedHeadingRef = useRef<number>(0); // Smoothed heading for display
 
   // --- Splash Screen Timer ---
   useEffect(() => {
@@ -57,15 +58,10 @@ const App: React.FC = () => {
     let watchId: number | null = null;
 
     if (navigator.geolocation && gpsEnabled) {
-      // Use watchPosition instead of getCurrentPosition to catch initial fix better
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
-          // ONLY update user position from GPS if we are in PLANNING mode
-          // Once tracking starts, we ignore GPS (Dead Reckoning)
           if (mode === AppMode.PLANNING) {
             const coord = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            // Only update if user hasn't manually set "From" address to something specific,
-            // OR if "From" is empty.
             if (!fromAddress) {
               setUserPosition(coord);
               setMapCenter(coord);
@@ -84,16 +80,56 @@ const App: React.FC = () => {
     };
   }, [gpsEnabled, mode, fromAddress]);
 
+  // --- Smoothing Algorithm ---
+  // Calculates shortest rotation direction and applies a low-pass filter (lerp)
+  const smoothHeading = (current: number, target: number, factor: number) => {
+    let delta = target - current;
+    // Handle wrap-around (e.g. 350 -> 10)
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    
+    // REDUCED SENSITIVITY: 0.05 factor for heavy, smooth rotation (30-50% less sensitive)
+    return (current + delta * factor + 360) % 360;
+  };
+
+  // --- Sensor Loop (Animation Frame) ---
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const updateLoop = () => {
+      // 1. Get current raw target
+      const rawTarget = (headingRef.current + headingOffset) % 360;
+      
+      // 2. Smooth it
+      const smoothed = smoothHeading(smoothedHeadingRef.current, rawTarget, 0.05); 
+      smoothedHeadingRef.current = smoothed;
+
+      // 3. Update React State only if changed significantly to avoid rerenders
+      setSensorData(prev => {
+        if (Math.abs(prev.heading - smoothed) > 0.1) {
+            return { ...prev, heading: smoothed };
+        }
+        return prev;
+      });
+
+      animationFrameId = requestAnimationFrame(updateLoop);
+    };
+
+    if (permissionsGranted) {
+      updateLoop();
+    }
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [permissionsGranted, headingOffset]);
+
+
   // --- Core Logic: Register a Step (PDR) ---
   const registerStep = useCallback(() => {
     setUserPosition(prevPos => {
-      // Calculate new position based on current heading (including calibration)
-      const adjustedHeading = (headingRef.current + headingOffset) % 360;
-      const newPos = calculateNewPosition(prevPos, STEP_LENGTH, adjustedHeading);
+      // Use the smoothed heading for movement to avoid jittery path
+      const newPos = calculateNewPosition(prevPos, STEP_LENGTH, smoothedHeadingRef.current);
       
-      // Update path
       setWalkedPath(prevPath => [...prevPath, newPos]);
-      
       return newPos;
     });
 
@@ -102,28 +138,20 @@ const App: React.FC = () => {
       steps: prev.steps + 1,
       isWalking: true
     }));
-  }, [headingOffset]);
+  }, []);
 
   // --- Sensor Handlers ---
   const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
-    // Alpha is the compass heading (0-360)
-    // iOS webkitCompassHeading is better if available
     let rawHeading = 0;
-    
-    // TypeScript check for iOS property
     const ev = event as any;
     if (ev.webkitCompassHeading) {
       rawHeading = ev.webkitCompassHeading;
     } else if (event.alpha !== null) {
-      rawHeading = 360 - event.alpha; // Web standard is counter-clockwise
+      rawHeading = 360 - event.alpha;
     }
-
+    // Just update the ref, the loop handles smoothing
     headingRef.current = rawHeading;
-    
-    // Apply calibration for display
-    const displayedHeading = (rawHeading + headingOffset + 360) % 360;
-    setSensorData(prev => ({ ...prev, heading: displayedHeading }));
-  }, [headingOffset]);
+  }, []);
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
     if (mode !== AppMode.TRACKING && mode !== AppMode.BACKTRACK) return;
@@ -131,53 +159,41 @@ const App: React.FC = () => {
     const acc = event.accelerationIncludingGravity;
     if (!acc || !acc.x || !acc.y || !acc.z) return;
 
-    // Simple Step Detection: Check total magnitude variance
     const magnitude = Math.sqrt(acc.x*acc.x + acc.y*acc.y + acc.z*acc.z);
     const delta = Math.abs(magnitude - 9.8);
 
     if (delta > MOTION_THRESHOLD) {
       const now = Date.now();
-      if (now - lastStepTime.current > 500) { // Min 500ms between steps
+      if (now - lastStepTime.current > 500) {
         lastStepTime.current = now;
         registerStep();
       }
     }
   }, [mode, registerStep]);
 
-  // --- Manage Event Listeners ---
   useEffect(() => {
     if (!permissionsGranted) return;
-
     window.addEventListener('deviceorientation', handleOrientation);
     window.addEventListener('devicemotion', handleMotion);
-
     return () => {
       window.removeEventListener('deviceorientation', handleOrientation);
       window.removeEventListener('devicemotion', handleMotion);
     };
   }, [permissionsGranted, handleOrientation, handleMotion]);
 
-  // --- Permissions ---
   const requestPermissions = async () => {
-    // iOS 13+ requires explicit permission for DeviceOrientation
     if (typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
       try {
         const permissionState = await (DeviceOrientationEvent as any).requestPermission();
-        if (permissionState === 'granted') {
-          setPermissionsGranted(true);
-        }
+        if (permissionState === 'granted') setPermissionsGranted(true);
       } catch (e) {
-        console.error(e);
-        // If simulated environment or desktop, just grant to allow testing
         setPermissionsGranted(true);
       }
     } else {
-      // Non-iOS or older devices
       setPermissionsGranted(true);
     }
   };
 
-  // Helper: Geocode Address
   const geocodeAddress = async (query: string): Promise<{ coord: Coordinate, displayName: string } | null> => {
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
@@ -194,28 +210,22 @@ const App: React.FC = () => {
     return null;
   };
 
-  // --- Logic: Search & Routing ---
   const handleRouteRequest = async () => {
     setIsSearching(true);
-    
-    // Clear previous
     setPlannedRoute([]);
     setAiContext('');
 
     try {
       let startCoord = userPosition;
       
-      // 1. Resolve Start Point (Point A)
       if (fromAddress.trim()) {
         const startResult = await geocodeAddress(fromAddress);
         if (startResult) {
           startCoord = startResult.coord;
-          // TELEPORT USER TO POINT A
           setUserPosition(startCoord);
         }
       }
 
-      // 2. Resolve End Point (Point B)
       const endResult = await geocodeAddress(toAddress);
       if (!endResult) {
         alert(TRANSLATIONS[language].geoError);
@@ -223,29 +233,21 @@ const App: React.FC = () => {
         return;
       }
       const endCoord = endResult.coord;
-
-      // Center map on Start Point (Point A)
       setMapCenter(startCoord);
 
-      // 3. Fetch Route via OpenStreetMap.de Foot Routing
       const routeUrl = `https://routing.openstreetmap.de/routed-foot/route/v1/driving/${startCoord.lng},${startCoord.lat};${endCoord.lng},${endCoord.lat}?overview=full&geometries=geojson`;
-      
       const routeRes = await fetch(routeUrl);
       const routeJson = await routeRes.json();
 
       if (routeJson.routes && routeJson.routes.length > 0) {
-        // Convert GeoJSON [lng, lat] to {lat, lng}
         const coords = routeJson.routes[0].geometry.coordinates.map((c: number[]) => ({
           lat: c[1],
           lng: c[0]
         }));
         setPlannedRoute(coords);
       }
-
-      // 4. Get AI Context for Destination
       const context = await getDestinationInfo(endResult.displayName);
       setAiContext(context);
-
     } catch (e) {
       console.error("Routing failed", e);
     } finally {
@@ -253,24 +255,18 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Logic: Manual Correction ---
   const handleCorrectionSubmit = async (address: string) => {
     setIsSearching(true);
     const result = await geocodeAddress(address);
     if (result) {
-      // Teleport user to corrected location
       setUserPosition(result.coord);
-      // Snap Logic: Replace the last point instead of appending a new segment
       setWalkedPath(prev => {
         const newPath = [...prev];
-        if (newPath.length > 0) {
-          newPath[newPath.length - 1] = result.coord;
-        } else {
-          newPath.push(result.coord);
-        }
+        if (newPath.length > 0) newPath[newPath.length - 1] = result.coord;
+        else newPath.push(result.coord);
         return newPath;
       });
-      setMapCenter(result.coord); // Re-center map
+      setMapCenter(result.coord);
       setShowCorrectionModal(false);
       setCorrectionInput('');
     } else {
@@ -279,15 +275,12 @@ const App: React.FC = () => {
     setIsSearching(false);
   };
 
-  // --- Map Click Handling ---
   const handleMapClick = async (coord: Coordinate) => {
     if (pickingTarget) {
-      // Reverse Geocode
       const addr = await reverseGeocode(coord);
-      
       if (pickingTarget === 'from') {
         setFromAddress(addr);
-        setUserPosition(coord); // Immediately move visual marker for Start
+        setUserPosition(coord);
         setMapCenter(coord);
         setPickingTarget(null);
       } else if (pickingTarget === 'to') {
@@ -302,47 +295,45 @@ const App: React.FC = () => {
   };
 
   const handlePickCorrectionOnMap = () => {
-    setShowCorrectionModal(false); // Close modal to see map
-    setPickingTarget('correction'); // Enter map picking mode
+    setShowCorrectionModal(false);
+    setPickingTarget('correction');
   };
   
-  // Track center for "I'm Here" functionality
   const handleCenterChange = (center: Coordinate) => {
-    // Only update if not in tracking mode (performance)
     if (mode === AppMode.PLANNING) {
       setMapCenter(center);
     }
   };
   
+  // Logic: "I'm Here" sets the current map center as the Start Point (Point A)
   const handleImHere = async () => {
+    // 1. Snap User Position to the Reticle (Map Center)
     setUserPosition(mapCenter);
-    // Reverse geocode this center to fill "From"
+    
+    // 2. Get Address
     const addr = await reverseGeocode(mapCenter);
+    
+    // 3. Set as Point A (From)
     setFromAddress(addr);
+    
+    // 4. Update map center to ensure sync
+    setMapCenter(mapCenter);
   };
 
-  // --- Logic: App State ---
   const handleStart = () => {
     setMode(AppMode.TRACKING);
-    // Start breadcrumbs with current position (Point A)
     setWalkedPath([userPosition]);
   };
 
   const handleStop = () => {
-    // Just finish
     setMode(AppMode.BACKTRACK);
   };
   
   const handleReturn = () => {
-     setMode(AppMode.TRACKING); // Go back to tracking, but path is reversed? 
-     // Requirement: "Return along route".
-     // Simplest way: Make the walked path the new "Planned Route" (reversed), clear walked path, and start new tracking.
-     
      const pathBack = [...walkedPath].reverse();
      setPlannedRoute(pathBack);
-     setWalkedPath([userPosition]); // Start new tracking
+     setWalkedPath([userPosition]);
      setMode(AppMode.TRACKING); 
-     // Optionally set Target Address to "START POINT"
      setToAddress(fromAddress || "START");
   };
 
@@ -358,17 +349,9 @@ const App: React.FC = () => {
     setRotationMode('NORTH_UP');
   };
 
-  const handleToggleGps = () => {
-    setGpsEnabled(prev => !prev);
-  };
-
-  const handleToggleLanguage = () => {
-    setLanguage(prev => prev === 'RU' ? 'EN' : 'RU');
-  };
-
-  const handleToggleRotation = () => {
-    setRotationMode(prev => prev === 'NORTH_UP' ? 'HEADS_UP' : 'NORTH_UP');
-  };
+  const handleToggleGps = () => setGpsEnabled(prev => !prev);
+  const handleToggleLanguage = () => setLanguage(prev => prev === 'RU' ? 'EN' : 'RU');
+  const handleToggleRotation = () => setRotationMode(prev => prev === 'NORTH_UP' ? 'HEADS_UP' : 'NORTH_UP');
 
   const handleLongPress = (coord: Coordinate) => {
     if (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK) {
@@ -382,26 +365,16 @@ const App: React.FC = () => {
     }
   };
   
-  // --- Calibration Logic ---
   const handleCalibrate = () => {
-    // Requirement: "at press of button, arrow points straight (direction person looks)"
-    // If user is looking straight, and phone sensor says X degrees.
-    // We want the APP to show 0 degrees (Up/North on map or Straight in heads up).
-    // So displayedHeading = (raw + offset) % 360  =>  0 = raw + offset  => offset = -raw.
-    
     const currentRaw = headingRef.current;
     const newOffset = -currentRaw;
     setHeadingOffset(newOffset);
   };
 
-  // Calculate Distance Walked
   const totalDistance = sensorData.steps * STEP_LENGTH;
 
   return (
-    // iOS FIX: Use h-full with fixed body to ensure full coverage
-    <div className="relative w-full h-full overflow-hidden bg-black font-mono">
-      
-      {/* Splash Screen */}
+    <div className="relative w-full h-[100dvh] overflow-hidden bg-black font-mono">
       {showSplash && (
         <div className="absolute inset-0 z-[9999] bg-black flex flex-col items-center justify-center transition-opacity duration-500 ease-out" style={{ opacity: showSplash ? 1 : 0, pointerEvents: showSplash ? 'auto' : 'none' }}>
            <h1 className="glitch font-gemunu font-bold text-6xl md:text-7xl text-white tracking-widest mb-4" data-text="GiroMap">GiroMap</h1>

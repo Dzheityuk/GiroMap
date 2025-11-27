@@ -12,7 +12,7 @@ interface DashboardProps {
   onStart: () => void;
   onStop: () => void;
   onReset: () => void;
-  onReturn: () => void; // New prop for backtracking
+  onReturn: () => void;
   onRequestPermissions: () => void;
   permissionsGranted: boolean;
   onCorrectionSubmit: (address: string) => void;
@@ -20,19 +20,15 @@ interface DashboardProps {
   onToggleGps: () => void;
   language: Language;
   onToggleLanguage: () => void;
-  
-  // Correction State Props
   showCorrectionModal: boolean;
   setShowCorrectionModal: (show: boolean) => void;
   correctionInput: string;
   setCorrectionInput: (val: string) => void;
   onPickCorrectionOnMap: () => void;
-  
-  // Calibration & Tools
   onCalibrate: () => void;
-  onImHere: () => void; // New prop
-  rotationMode: MapRotationMode; // New prop
-  onToggleRotation: () => void; // New prop
+  onImHere: () => void;
+  rotationMode: MapRotationMode;
+  onToggleRotation: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -63,7 +59,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   onToggleRotation
 }) => {
   const [showStopConfirmModal, setShowStopConfirmModal] = useState(false);
-
   const t = TRANSLATIONS[language];
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -73,15 +68,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const handleStopClick = () => {
-    setShowStopConfirmModal(true);
-  };
-
+  const handleStopClick = () => setShowStopConfirmModal(true);
   const confirmStop = () => {
     setShowStopConfirmModal(false);
     onStop();
   };
-  
   const handleReturnClick = () => {
     setShowStopConfirmModal(false);
     onReturn();
@@ -91,45 +82,19 @@ const Dashboard: React.FC<DashboardProps> = ({
     <>
       <div className="absolute bottom-0 left-0 right-0 z-[1000] flex flex-col pb-[env(safe-area-inset-bottom)]">
         
-        {/* Transparent Glass Container */}
+        {/* Glass Container */}
         <div className="bg-black/40 backdrop-blur-xl border-t border-white/10 px-3 pb-4 pt-3 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
             
-            {/* Header: AI Context + Toggles */}
-            <div className="flex justify-between items-start mb-2">
-              {aiContext ? (
-                <div className="text-xs font-mono text-cyan-400/80 border-l border-cyan-500/50 pl-2 max-w-[45%] leading-none tracking-wide">
-                  {aiContext.toUpperCase()}
-                </div>
-              ) : <div />}
-              
-              <div className="flex gap-1 font-handjet flex-wrap justify-end max-w-[60%]">
-                 {/* Map Rotation Toggle */}
+            {/* Split Header: Row 1 - Status Info */}
+            <div className="flex justify-between items-center mb-2 pb-2">
+               {/* AI Context */}
+               <div className="text-xs font-mono text-cyan-400/80 pl-1 max-w-[50%] leading-tight tracking-wide">
+                  {aiContext ? aiContext.toUpperCase() : "SYSTEM READY"}
+               </div>
+               
+               {/* System Toggles */}
+               <div className="flex gap-2 font-handjet">
                  <button 
-                  onClick={onToggleRotation}
-                  className="px-2 py-0.5 text-base font-bold border border-white/20 text-white bg-white/5 rounded uppercase hover:bg-white/10 tracking-widest flex items-center gap-1"
-                  title="Toggle Map Rotation"
-                >
-                  {rotationMode === 'NORTH_UP' ? 'N' : '↻'}
-                </button>
-
-                 {/* Im Here Button (Planning Only) */}
-                 {mode === AppMode.PLANNING && (
-                   <button 
-                    onClick={onImHere}
-                    className="px-2 py-0.5 text-base font-bold border border-orange-500/50 text-orange-400 bg-white/5 rounded uppercase hover:bg-white/10 tracking-widest"
-                  >
-                    {t.imHere}
-                  </button>
-                 )}
-
-                <button 
-                  onClick={onCalibrate}
-                  className="px-2 py-0.5 text-base font-bold border border-yellow-500/50 text-yellow-400 bg-white/5 rounded uppercase hover:bg-white/10 tracking-widest"
-                  title="Align Compass"
-                >
-                  {t.calib}
-                </button>
-                <button 
                   onClick={onToggleLanguage}
                   className="px-2 py-0.5 text-base font-bold border border-white/20 bg-white/5 text-white rounded uppercase hover:bg-white/10 tracking-widest"
                 >
@@ -141,7 +106,38 @@ const Dashboard: React.FC<DashboardProps> = ({
                 >
                   {gpsEnabled ? 'GPS' : 'OFF'}
                 </button>
-              </div>
+               </div>
+            </div>
+
+            {/* Visual Divider to split functions from status */}
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-white/20 to-transparent mb-3"></div>
+
+            {/* Split Header: Row 2 - Navigation Tools */}
+            <div className="grid grid-cols-3 gap-2 mb-3">
+               <button 
+                  onClick={onToggleRotation}
+                  className={`py-1 text-sm font-bold border font-handjet rounded uppercase tracking-widest flex items-center justify-center gap-1
+                     ${rotationMode === 'HEADS_UP' ? 'border-cyan-500/50 text-cyan-400 bg-cyan-900/20' : 'border-white/20 text-gray-400 bg-white/5'}`}
+                >
+                  {rotationMode === 'NORTH_UP' ? t.modeNorth : t.modeHead}
+                </button>
+
+                <button 
+                  onClick={onCalibrate}
+                  className="py-1 text-sm font-bold border border-yellow-500/50 text-yellow-400 bg-white/5 rounded uppercase font-handjet tracking-widest"
+                >
+                  {t.calib}
+                </button>
+
+                 {/* Im Here Button (Planning Only) */}
+                 {mode === AppMode.PLANNING ? (
+                   <button 
+                    onClick={onImHere}
+                    className="py-1 text-sm font-bold border border-orange-500/50 text-orange-400 bg-white/5 rounded uppercase font-handjet tracking-widest"
+                  >
+                    {t.imHere}
+                  </button>
+                 ) : <div />}
             </div>
 
             {/* Main Stats Grid */}
@@ -183,7 +179,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   {mode === AppMode.PLANNING && (
                     <button 
                       onClick={onStart}
-                      disabled={!targetAddress} // DISABLE IF NO TARGET
+                      disabled={!targetAddress}
                       className={`w-full font-bold py-3 rounded-lg uppercase text-xl tracking-widest transition-colors shadow-lg
                         ${!targetAddress 
                           ? 'bg-neutral-800 text-gray-600 cursor-not-allowed border border-white/5' 

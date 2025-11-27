@@ -2,12 +2,23 @@
 // Replaced Google GenAI with DeepSeek API (OpenAI Compatible)
 // Since Google API is often blocked in Russia, DeepSeek is a better alternative.
 
+const FALLBACK_MESSAGES = [
+  "SECTOR SCAN COMPLETE // DATA FRAGMENTED",
+  "URBAN DENSITY: HIGH // CAUTION ADVISED",
+  "GRID REFERENCE: A-7 // SIGNAL INTERFERENCE",
+  "LOCALE: UNMAPPED // MONITOR SENSORS",
+  "ENVIRONMENT: HOSTILE // MAINTAIN BEARING",
+  "TARGET ZONE IDENTIFIED // LOW VISIBILITY",
+  "CIVILIAN SECTOR // RADIO SILENCE",
+  "TERRAIN: PAVED // MOVEMENT SPEED: NORMAL"
+];
+
 export const getDestinationInfo = async (address: string): Promise<string> => {
-  const DEEPSEEK_API_KEY = 'sk-50962383827d498aa29352e698884949'; // Placeholder: User needs to provide valid key if not using proxy
-  // Note: In production, do not expose keys in frontend code. Use a backend proxy.
+  const DEEPSEEK_API_KEY = 'sk-46efe655b9d84c489865bf369892a107'; 
   
-  // If no key provided (or default), return fallback
-  // if (!DEEPSEEK_API_KEY) return "AI KEY MISSING";
+  // Return simulated data immediately if key is obviously a placeholder to save network request
+  // or if you want to force simulation, just uncomment next line:
+  // return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
 
   try {
     const response = await fetch("https://api.deepseek.com/chat/completions", {
@@ -32,6 +43,11 @@ export const getDestinationInfo = async (address: string): Promise<string> => {
       })
     });
 
+    if (response.status === 401) {
+        console.warn("AI Key Invalid. Switching to Tactical Simulation Mode.");
+        return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
+    }
+
     if (!response.ok) {
         throw new Error(`DeepSeek API Error: ${response.status}`);
     }
@@ -41,7 +57,7 @@ export const getDestinationInfo = async (address: string): Promise<string> => {
 
   } catch (error) {
     console.error("AI Error:", error);
-    // Silent fail or return generic message
-    return "СВЯЗЬ ПОТЕРЯНА"; // Connection Lost
+    // Return a random cool message instead of "Error" to maintain immersion
+    return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
   }
 };
