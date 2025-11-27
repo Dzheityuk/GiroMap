@@ -16,10 +16,11 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <!-- Import Fonts: Audiowide, Handjet, Ubuntu Mono, Gemunu Libre, Pixelify Sans -->
+    
+    <!-- Import Fonts: Rubik 80s Fade, Handjet, Ubuntu Mono, Gemunu Libre, Pixelify Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Handjet:wght@100..900&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400&family=Gemunu+Libre:wght@200..800&family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik+80s+Fade&family=Handjet:wght@100..900&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400&family=Gemunu+Libre:wght@200..800&family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet">
     
     <style>
       /* Custom scrollbar to match monochrome theme */
@@ -62,7 +63,7 @@
       }
 
       /* --- FONTS --- */
-      .font-audiowide { font-family: 'Audiowide', cursive; }
+      .font-rubik { font-family: 'Rubik 80s Fade', cursive; }
       .font-handjet { font-family: 'Handjet', monospace; } /* Used for Buttons & Numbers */
       .font-mono { font-family: 'Ubuntu Mono', monospace; } /* Used for General Text */
       .font-gemunu { font-family: 'Gemunu Libre', sans-serif; } /* Splash Title */
@@ -99,7 +100,7 @@
         animation: glitch-anim-2 5s infinite linear alternate-reverse;
       }
 
-      /* Toned down animations (less skew, simpler clips) */
+      /* Toned down animations */
       @keyframes glitch-anim {
         0% { clip: rect(31px, 9999px, 94px, 0); transform: skew(0.15deg); }
         5% { clip: rect(70px, 9999px, 11px, 0); transform: skew(0.01deg); }
@@ -151,18 +152,18 @@
   <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^18.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^18.2.0/",
-    "react/": "https://aistudiocdn.com/react@^18.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
-    "react-leaflet": "https://aistudiocdn.com/react-leaflet@^4.2.1",
-    "leaflet/": "https://aistudiocdn.com/leaflet@^1.9.4/",
-    "leaflet": "https://aistudiocdn.com/leaflet@^1.9.4"
+    "leaflet": "https://aistudiocdn.com/leaflet@^1.9.4",
+    "react-leaflet": "https://aistudiocdn.com/react-leaflet@^5.0.0"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
