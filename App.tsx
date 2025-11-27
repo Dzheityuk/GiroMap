@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
@@ -302,8 +303,33 @@ const App: React.FC = () => {
     setPickingTarget('correction');
   };
   
+  // NEW: Handle snapping to map center during correction
+  const handleConfirmCorrectionMapPick = async () => {
+    // 1. Snap User Position to the Reticle (Map Center)
+    setUserPosition(mapCenter);
+
+    // 2. Fix the path history to snap the line visually
+    setWalkedPath(prev => {
+      const newPath = [...prev];
+      if (newPath.length > 0) newPath[newPath.length - 1] = mapCenter;
+      else newPath.push(mapCenter);
+      return newPath;
+    });
+    
+    // 3. Close picking mode
+    setPickingTarget(null);
+    setCorrectionInput(''); // clear input
+    
+    // Optional: Reverse geocode silently to update address cache if needed
+    reverseGeocode(mapCenter).then(addr => {
+        // Just log or could update UI toast
+    });
+  };
+
   const handleCenterChange = (center: Coordinate) => {
-    if (mode === AppMode.PLANNING) {
+    // In planning, we track center for picking.
+    // In correction picking mode (TRACKING), we also track it.
+    if (mode === AppMode.PLANNING || pickingTarget === 'correction') {
       setMapCenter(center);
     }
   };
@@ -404,9 +430,24 @@ const App: React.FC = () => {
         onMapClick={handleMapClick}
         rotationMode={rotationMode}
         onCenterChange={handleCenterChange}
+        pickingTarget={pickingTarget}
       />
 
       <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)] z-[500]" />
+      
+      {/* Floating "HERE" Button - Only visible during Correction Picking */}
+      {pickingTarget === 'correction' && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-16 z-[1500] animate-in zoom-in duration-200">
+           <button 
+             onClick={handleConfirmCorrectionMapPick}
+             className="bg-orange-600 text-white font-handjet font-bold text-xl px-6 py-2 rounded-full shadow-[0_0_20px_rgba(255,69,0,0.6)] border border-white/20 uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform"
+           >
+             {TRANSLATIONS[language].hereBtn}
+           </button>
+           {/* Triangle pointer pointing down to dot */}
+           <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-orange-600 absolute left-1/2 -translate-x-1/2 -bottom-2"></div>
+        </div>
+      )}
 
       {mode === AppMode.PLANNING && (
         <SearchBar 
@@ -422,34 +463,49 @@ const App: React.FC = () => {
         />
       )}
 
-      <Dashboard 
-        mode={mode}
-        sensorData={sensorData}
-        targetAddress={toAddress}
-        aiContext={aiContext}
-        distanceWalked={totalDistance}
-        onStart={handleStart}
-        onStop={handleStop}
-        onReset={handleReset}
-        onReturn={handleReturn}
-        onRequestPermissions={requestPermissions}
-        permissionsGranted={permissionsGranted}
-        onCorrectionSubmit={handleCorrectionSubmit}
-        gpsEnabled={gpsEnabled}
-        onToggleGps={handleToggleGps}
-        language={language}
-        onToggleLanguage={handleToggleLanguage}
-        showCorrectionModal={showCorrectionModal}
-        setShowCorrectionModal={setShowCorrectionModal}
-        correctionInput={correctionInput}
-        setCorrectionInput={setCorrectionInput}
-        onPickCorrectionOnMap={handlePickCorrectionOnMap}
-        onCalibrate={handleCalibrate}
-        onImHere={handleImHere}
-        onToHere={handleToHere}
-        rotationMode={rotationMode}
-        onToggleRotation={handleToggleRotation}
-      />
+      {/* Hide Dashboard during map picking to give more view space */}
+      {pickingTarget !== 'correction' && (
+        <Dashboard 
+          mode={mode}
+          sensorData={sensorData}
+          targetAddress={toAddress}
+          aiContext={aiContext}
+          distanceWalked={totalDistance}
+          onStart={handleStart}
+          onStop={handleStop}
+          onReset={handleReset}
+          onReturn={handleReturn}
+          onRequestPermissions={requestPermissions}
+          permissionsGranted={permissionsGranted}
+          onCorrectionSubmit={handleCorrectionSubmit}
+          gpsEnabled={gpsEnabled}
+          onToggleGps={handleToggleGps}
+          language={language}
+          onToggleLanguage={handleToggleLanguage}
+          showCorrectionModal={showCorrectionModal}
+          setShowCorrectionModal={setShowCorrectionModal}
+          correctionInput={correctionInput}
+          setCorrectionInput={setCorrectionInput}
+          onPickCorrectionOnMap={handlePickCorrectionOnMap}
+          onCalibrate={handleCalibrate}
+          onImHere={handleImHere}
+          onToHere={handleToHere}
+          rotationMode={rotationMode}
+          onToggleRotation={handleToggleRotation}
+        />
+      )}
+      
+      {/* If picking correction, show a simple "Cancel" button at bottom instead of full dashboard */}
+      {pickingTarget === 'correction' && (
+        <div className="absolute bottom-10 left-0 right-0 z-[1000] flex justify-center pb-[env(safe-area-inset-bottom)]">
+           <button 
+             onClick={() => setPickingTarget(null)}
+             className="bg-neutral-900/80 backdrop-blur border border-white/20 text-white font-handjet px-8 py-2 rounded-full uppercase text-xl shadow-lg"
+           >
+             {TRANSLATIONS[language].cancel}
+           </button>
+        </div>
+      )}
     </div>
   );
 };

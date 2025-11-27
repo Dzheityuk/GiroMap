@@ -42,7 +42,7 @@ export const TRANSLATIONS = {
     planRouteHeader: 'ПЛАНИРОВАНИЕ',
     pickA: 'Нажмите на карту, чтобы выбрать точку А',
     pickB: 'Нажмите на карту, чтобы выбрать точку Б',
-    pickCorrect: 'Нажмите на карту для коррекции',
+    pickCorrect: 'Наведите центр на точку',
     pickOnMapBtn: 'УКАЗАТЬ НА КАРТЕ',
     tapMapHint: 'НАЖМИТЕ НА КАРТУ ДЛЯ ВЫБОРА',
     stopConfirmTitle: 'ЗАВЕРШИТЬ?',
@@ -56,6 +56,7 @@ export const TRANSLATIONS = {
     byAuthor: 'BY DZHEITYUK',
     imHere: 'Я ТУТ',
     toHere: 'СЮДА',
+    hereBtn: 'ТУТ',
     calib: 'КАЛИБР',
     modeNorth: 'СЕВЕР',
     modeHead: 'КУРС'
@@ -85,7 +86,7 @@ export const TRANSLATIONS = {
     planRouteHeader: 'PLAN ROUTE',
     pickA: 'Tap map to pick Point A',
     pickB: 'Tap map to pick Point B',
-    pickCorrect: 'Tap map to correct location',
+    pickCorrect: 'Aim center at location',
     pickOnMapBtn: 'PICK ON MAP',
     tapMapHint: 'TAP MAP TO SELECT LOCATION',
     stopConfirmTitle: 'FINISH ROUTE?',
@@ -99,6 +100,7 @@ export const TRANSLATIONS = {
     byAuthor: 'BY DZHEITYUK',
     imHere: 'I\'M HERE',
     toHere: 'TO HERE',
+    hereBtn: 'HERE',
     calib: 'CALIB',
     modeNorth: 'NORTH',
     modeHead: 'HEAD'

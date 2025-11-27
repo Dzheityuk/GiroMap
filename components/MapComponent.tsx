@@ -1,8 +1,9 @@
 
+
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { Coordinate, AppMode, MapRotationMode } from '../types';
+import { Coordinate, AppMode, MapRotationMode, PickingMode } from '../types';
 import { TILE_LAYER_URL, TILE_ATTRIBUTION } from '../constants';
 
 const DefaultIcon = L.icon({
@@ -15,8 +16,6 @@ const DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 const createArrowIcon = (heading: number, isHeadsUp: boolean) => L.divIcon({
-  // In Heads Up mode, the MAP rotates, so the arrow stays fixed UP (0 deg).
-  // In North Up mode, the MAP is fixed, so the arrow rotates to the heading.
   html: `<div style="transform: rotate(${isHeadsUp ? 0 : heading}deg); width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 2L2 22L12 18L22 22L12 2Z" fill="#FF4500" stroke="white" stroke-width="2"/>
@@ -38,6 +37,7 @@ interface MapProps {
   onMapClick: (coord: Coordinate) => void;
   rotationMode: MapRotationMode;
   onCenterChange: (center: Coordinate) => void;
+  pickingTarget: PickingMode;
 }
 
 const MapController: React.FC<{ 
@@ -97,18 +97,23 @@ const MapComponent: React.FC<MapProps> = ({
   onLongPress,
   onMapClick,
   rotationMode,
-  onCenterChange
+  onCenterChange,
+  pickingTarget
 }) => {
   
   const isHeadsUp = rotationMode === 'HEADS_UP';
+  // Show reticle in Planning Mode OR when picking a correction point
+  const showReticle = mode === AppMode.PLANNING || pickingTarget === 'correction';
 
   return (
     <div className="absolute inset-0 z-0 bg-black w-full h-full overflow-hidden flex items-center justify-center">
         
-        {/* Map Container. CSS Transform handles rotation. Increased duration for weight. */}
+        {/* Map Container */}
         <div 
-           className="w-full h-full transition-transform duration-700 ease-out will-change-transform"
+           className="w-full h-full transition-transform duration-700 ease-out will-change-transform flex-shrink-0"
            style={{ 
+             width: '150vmax', 
+             height: '150vmax', 
              transform: isHeadsUp ? `rotate(${-heading}deg)` : 'rotate(0deg)',
              transformOrigin: 'center center' 
            }}
@@ -156,7 +161,8 @@ const MapComponent: React.FC<MapProps> = ({
           </MapContainer>
         </div>
         
-        {mode === AppMode.PLANNING && (
+        {/* Center Reticle (White Dot) */}
+        {showReticle && (
           <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-white rounded-full z-[999] -translate-x-1/2 -translate-y-1/2 shadow-[0_0_4px_rgba(255,255,255,0.8)] pointer-events-none" />
         )}
     </div>
