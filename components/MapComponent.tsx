@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -77,51 +76,53 @@ const MapComponent: React.FC<MapProps> = ({
   onMapClick
 }) => {
   return (
-    <MapContainer 
-      center={[center.lat, center.lng]} 
-      zoom={17} // Higher zoom to see house numbers
-      zoomControl={false} 
-      className="invert-map"
-      style={{ height: '100%', width: '100%', background: '#000' }}
-    >
-      <TileLayer
-        attribution={TILE_ATTRIBUTION}
-        url={TILE_LAYER_URL}
-        maxZoom={19}
-      />
-      
-      <MapController center={center} mode={mode} userPosition={userPosition} />
-      <MapEvents onLongPress={onLongPress} onMapClick={onMapClick} />
+    <div className="absolute inset-0 z-0 bg-black">
+        <MapContainer 
+          center={[center.lat, center.lng]} 
+          zoom={17} 
+          zoomControl={false} 
+          className="invert-map"
+          style={{ height: '100%', width: '100%', background: '#000' }}
+        >
+          <TileLayer
+            attribution={TILE_ATTRIBUTION}
+            url={TILE_LAYER_URL}
+            maxZoom={19}
+          />
+          
+          <MapController center={center} mode={mode} userPosition={userPosition} />
+          <MapEvents onLongPress={onLongPress} onMapClick={onMapClick} />
 
-      {/* Planned Route - Gray Line */}
-      {plannedRoute.length > 0 && (
-        <Polyline 
-          positions={plannedRoute.map(c => [c.lat, c.lng])} 
-          pathOptions={{ color: '#666', weight: 6, dashArray: '10, 10', opacity: 0.7 }} 
-        />
-      )}
+          {/* Planned Route - Gray Line */}
+          {plannedRoute.length > 0 && (
+            <Polyline 
+              positions={plannedRoute.map(c => [c.lat, c.lng])} 
+              pathOptions={{ color: '#666', weight: 6, dashArray: '10, 10', opacity: 0.7 }} 
+            />
+          )}
 
-      {/* Walked Path - Orange Line (High Contrast) */}
-      {walkedPath.length > 0 && (
-        <Polyline 
-          positions={walkedPath.map(c => [c.lat, c.lng])} 
-          pathOptions={{ color: '#FF4500', weight: 5, opacity: 0.9 }} 
-        />
-      )}
+          {/* Walked Path - Orange Line (High Contrast) */}
+          {walkedPath.length > 0 && (
+            <Polyline 
+              positions={walkedPath.map(c => [c.lat, c.lng])} 
+              pathOptions={{ color: '#FF4500', weight: 5, opacity: 0.9 }} 
+            />
+          )}
 
-      {/* User Marker */}
-      <Marker 
-        position={[userPosition.lat, userPosition.lng]} 
-        icon={createArrowIcon(heading)} 
-        zIndexOffset={1000}
-      />
+          {/* User Marker */}
+          <Marker 
+            position={[userPosition.lat, userPosition.lng]} 
+            icon={createArrowIcon(heading)} 
+            zIndexOffset={1000}
+          />
 
-      {/* Destination Marker */}
-      {plannedRoute.length > 0 && (
-        <Marker position={[plannedRoute[plannedRoute.length - 1].lat, plannedRoute[plannedRoute.length - 1].lng]} />
-      )}
+          {/* Destination Marker */}
+          {plannedRoute.length > 0 && (
+            <Marker position={[plannedRoute[plannedRoute.length - 1].lat, plannedRoute[plannedRoute.length - 1].lng]} />
+          )}
 
-    </MapContainer>
+        </MapContainer>
+    </div>
   );
 };
 

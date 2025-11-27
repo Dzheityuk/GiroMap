@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
@@ -381,8 +380,8 @@ const App: React.FC = () => {
   const totalDistance = sensorData.steps * STEP_LENGTH;
 
   return (
-    // iOS FIX: Use 100dvh (Dynamic Viewport Height) to fix bottom bar cutoff
-    <div className="relative w-full h-[100dvh] overflow-hidden bg-black font-mono">
+    // iOS FIX: Use h-full with fixed body to ensure full coverage
+    <div className="relative w-full h-full overflow-hidden bg-black font-mono">
       
       {/* Splash Screen */}
       {showSplash && (
