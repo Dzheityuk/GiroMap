@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
@@ -26,7 +27,8 @@ const App: React.FC = () => {
   // Sensors
   const [sensorData, setSensorData] = useState<SensorData>({ steps: 0, heading: 0, isWalking: false });
   const [permissionsGranted, setPermissionsGranted] = useState<boolean>(false);
-  
+  const [headingOffset, setHeadingOffset] = useState<number>(0); // Calibration offset
+
   // UI
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [pickingTarget, setPickingTarget] = useState<PickingMode>(null);
@@ -82,8 +84,9 @@ const App: React.FC = () => {
   // --- Core Logic: Register a Step (PDR) ---
   const registerStep = useCallback(() => {
     setUserPosition(prevPos => {
-      // Calculate new position based on current heading
-      const newPos = calculateNewPosition(prevPos, STEP_LENGTH, headingRef.current);
+      // Calculate new position based on current heading (including calibration)
+      const adjustedHeading = (headingRef.current + headingOffset) % 360;
+      const newPos = calculateNewPosition(prevPos, STEP_LENGTH, adjustedHeading);
       
       // Update path
       setWalkedPath(prevPath => [...prevPath, newPos]);
@@ -96,25 +99,28 @@ const App: React.FC = () => {
       steps: prev.steps + 1,
       isWalking: true
     }));
-  }, []);
+  }, [headingOffset]);
 
   // --- Sensor Handlers ---
   const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
     // Alpha is the compass heading (0-360)
     // iOS webkitCompassHeading is better if available
-    let heading = 0;
+    let rawHeading = 0;
     
     // TypeScript check for iOS property
     const ev = event as any;
     if (ev.webkitCompassHeading) {
-      heading = ev.webkitCompassHeading;
+      rawHeading = ev.webkitCompassHeading;
     } else if (event.alpha !== null) {
-      heading = 360 - event.alpha; // Web standard is counter-clockwise
+      rawHeading = 360 - event.alpha; // Web standard is counter-clockwise
     }
 
-    headingRef.current = heading;
-    setSensorData(prev => ({ ...prev, heading }));
-  }, []);
+    headingRef.current = rawHeading;
+    
+    // Apply calibration for display
+    const displayedHeading = (rawHeading + headingOffset + 360) % 360;
+    setSensorData(prev => ({ ...prev, heading: displayedHeading }));
+  }, [headingOffset]);
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
     if (mode !== AppMode.TRACKING) return;
@@ -219,9 +225,6 @@ const App: React.FC = () => {
       setMapCenter(startCoord);
 
       // 3. Fetch Route via OpenStreetMap.de Foot Routing
-      // This is a dedicated Hiking/Foot server that strictly prefers footpaths over roads.
-      // NOTE: The endpoint structure for this specific OSRM instance uses 'driving' as the service name in URL path,
-      // but because it is the 'routed-foot' subdomain, it returns foot routes.
       const routeUrl = `https://routing.openstreetmap.de/routed-foot/route/v1/driving/${startCoord.lng},${startCoord.lat};${endCoord.lng},${endCoord.lat}?overview=full&geometries=geojson`;
       
       const routeRes = await fetch(routeUrl);
@@ -288,13 +291,8 @@ const App: React.FC = () => {
         setToAddress(addr);
         setPickingTarget(null);
       } else if (pickingTarget === 'correction') {
-        // If we were picking for correction, fill the input and Re-Open the modal
         setCorrectionInput(addr);
         setShowCorrectionModal(true);
-        // Also apply the snap visual immediately to the map preview (optional, but good for feedback)
-        // But typically we wait for "Confirm" in the modal. 
-        // However, if the user "picks on map", usually they want that exact spot.
-        // Let's just set the input for now as per previous flow.
         setPickingTarget(null);
       }
     }
@@ -324,7 +322,7 @@ const App: React.FC = () => {
     setFromAddress('');
     setToAddress('');
     setAiContext('');
-    // We stay at current location to plan next route
+    setHeadingOffset(0);
   };
 
   const handleToggleGps = () => {
@@ -335,11 +333,9 @@ const App: React.FC = () => {
     setLanguage(prev => prev === 'RU' ? 'EN' : 'RU');
   };
 
-  // --- Manual Calibration (Long Press) ---
   const handleLongPress = (coord: Coordinate) => {
     if (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK) {
       setUserPosition(coord);
-      // Snap logic for long press too
       setWalkedPath(prev => {
         const newPath = [...prev];
         if (newPath.length > 0) newPath[newPath.length - 1] = coord;
@@ -348,17 +344,50 @@ const App: React.FC = () => {
       });
     }
   };
+  
+  // --- Calibration Logic ---
+  const handleCalibrate = () => {
+    // Idea: Point phone along the route and click calibrate.
+    // Logic: Calculate bearing from current position to next route point (or end).
+    // Set offset so displayed heading matches that bearing.
+    
+    let targetBearing = 0;
+    
+    if (plannedRoute.length > 1) {
+      // Find closest point on route or just look at the last point? 
+      // Simple approach: Use bearing to destination from current pos.
+      // Better approach for walking: Bearing from Start to End?
+      // Best "Snap" approach: Bearing to the LAST point in planned route.
+      // (Assuming user points phone at destination)
+      const target = plannedRoute[plannedRoute.length - 1];
+      
+      // Calculate bearing from userPosition to target
+      const y = Math.sin((target.lng - userPosition.lng) * Math.PI / 180) * Math.cos(target.lat * Math.PI / 180);
+      const x = Math.cos(userPosition.lat * Math.PI / 180) * Math.sin(target.lat * Math.PI / 180) -
+                Math.sin(userPosition.lat * Math.PI / 180) * Math.cos(target.lat * Math.PI / 180) * Math.cos((target.lng - userPosition.lng) * Math.PI / 180);
+      targetBearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+    
+    // Set offset: target = current + offset  => offset = target - current
+    const currentRaw = headingRef.current;
+    const newOffset = targetBearing - currentRaw;
+    setHeadingOffset(newOffset);
+    
+    // Alert user (visual feedback would be better but toast is missing)
+    // alert(language === 'RU' ? "Компас откалиброван по маршруту" : "Compass aligned to route");
+  };
 
   // Calculate Distance Walked
   const totalDistance = sensorData.steps * STEP_LENGTH;
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-black font-mono">
+    // iOS FIX: Use 100dvh (Dynamic Viewport Height) to fix bottom bar cutoff
+    <div className="relative w-full h-[100dvh] overflow-hidden bg-black font-mono">
       
       {/* Splash Screen */}
       {showSplash && (
         <div className="absolute inset-0 z-[9999] bg-black flex flex-col items-center justify-center transition-opacity duration-500 ease-out" style={{ opacity: showSplash ? 1 : 0, pointerEvents: showSplash ? 'auto' : 'none' }}>
-           <h1 className="glitch font-rubik font-bold text-6xl md:text-7xl text-white tracking-widest mb-4" data-text="GiroMap">GiroMap</h1>
+           <h1 className="glitch font-gemunu font-bold text-6xl md:text-7xl text-white tracking-widest mb-4" data-text="GiroMap">GiroMap</h1>
            <div className="absolute bottom-12 text-lg text-neutral-500 font-pixelify tracking-[0.3em] uppercase">{TRANSLATIONS[language].byAuthor}</div>
         </div>
       )}
@@ -411,6 +440,7 @@ const App: React.FC = () => {
         correctionInput={correctionInput}
         setCorrectionInput={setCorrectionInput}
         onPickCorrectionOnMap={handlePickCorrectionOnMap}
+        onCalibrate={handleCalibrate}
       />
     </div>
   );

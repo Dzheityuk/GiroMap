@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AppMode, SensorData, Language, PickingMode } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -19,12 +20,15 @@ interface DashboardProps {
   language: Language;
   onToggleLanguage: () => void;
   
-  // Correction State Props (Lifted to App)
+  // Correction State Props
   showCorrectionModal: boolean;
   setShowCorrectionModal: (show: boolean) => void;
   correctionInput: string;
   setCorrectionInput: (val: string) => void;
   onPickCorrectionOnMap: () => void;
+  
+  // Calibration
+  onCalibrate: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -47,7 +51,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   setShowCorrectionModal,
   correctionInput,
   setCorrectionInput,
-  onPickCorrectionOnMap
+  onPickCorrectionOnMap,
+  onCalibrate
 }) => {
   const [showStopConfirmModal, setShowStopConfirmModal] = useState(false);
 
@@ -73,7 +78,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     <>
       <div className="absolute bottom-0 left-0 right-0 z-[1000] flex flex-col">
         
-        {/* Transparent Glass Container - Reduced padding for compactness */}
+        {/* Transparent Glass Container */}
         <div className="bg-black/40 backdrop-blur-xl border-t border-white/10 px-3 pb-4 pt-3 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
             
             {/* Header: AI Context + Toggles */}
@@ -85,6 +90,13 @@ const Dashboard: React.FC<DashboardProps> = ({
               ) : <div />}
               
               <div className="flex gap-2 font-handjet">
+                <button 
+                  onClick={onCalibrate}
+                  className="px-2 py-0.5 text-lg font-bold border border-yellow-500/50 text-yellow-400 bg-white/5 rounded uppercase hover:bg-white/10 tracking-widest"
+                  title="Align Compass to Route"
+                >
+                  {language === 'RU' ? 'КАЛИБР' : 'CALIB'}
+                </button>
                 <button 
                   onClick={onToggleLanguage}
                   className="px-2 py-0.5 text-lg font-bold border border-white/20 bg-white/5 text-white rounded uppercase hover:bg-white/10 tracking-widest"
@@ -100,7 +112,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
-            {/* Main Stats Grid - Compacted */}
+            {/* Main Stats Grid */}
             <div className="grid grid-cols-3 gap-2 mb-3">
               <div className="bg-white/5 border border-white/10 p-1 rounded-lg backdrop-blur-sm text-center">
                 <div className="text-gray-400 text-xs font-mono uppercase tracking-widest mb-0">{t.dist}</div>
@@ -116,10 +128,9 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
-            {/* Target & Controls - Smaller Buttons */}
+            {/* Target & Controls */}
             <div className="flex flex-col gap-2 font-handjet">
                
-               {/* Current Target Address (Mini) */}
                {mode === AppMode.TRACKING && (
                  <div className="flex justify-center mb-1">
                     <div className="text-xs font-mono text-gray-400 uppercase tracking-widest bg-black/50 px-3 py-0.5 rounded-full border border-white/5 truncate max-w-[80%]">
@@ -191,7 +202,8 @@ const Dashboard: React.FC<DashboardProps> = ({
               value={correctionInput}
               onChange={(e) => setCorrectionInput(e.target.value)}
               placeholder={t.placeholderAddr}
-              className="w-full bg-black border border-neutral-600 text-white text-base p-2 rounded-lg mb-3 focus:border-orange-500 focus:outline-none uppercase"
+              // REMOVED focus:border-orange-500, Added focus:border-white
+              className="w-full bg-black border border-neutral-600 text-white text-base p-2 rounded-lg mb-3 focus:border-white focus:outline-none uppercase"
             />
             
             <button
