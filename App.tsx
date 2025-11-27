@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
@@ -158,7 +157,8 @@ const App: React.FC = () => {
     if (mode !== AppMode.TRACKING && mode !== AppMode.BACKTRACK) return;
     
     const acc = event.accelerationIncludingGravity;
-    if (!acc || !acc.x || !acc.y || !acc.z) return;
+    // Safety check for null acceleration data
+    if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
 
     const magnitude = Math.sqrt(acc.x*acc.x + acc.y*acc.y + acc.z*acc.z);
     const delta = Math.abs(magnitude - 9.8);
@@ -188,6 +188,7 @@ const App: React.FC = () => {
         const permissionState = await (DeviceOrientationEvent as any).requestPermission();
         if (permissionState === 'granted') setPermissionsGranted(true);
       } catch (e) {
+        // Even if error, try to set granted as some devices don't support the promise correctly
         setPermissionsGranted(true);
       }
     } else {
@@ -236,6 +237,7 @@ const App: React.FC = () => {
       const endCoord = endResult.coord;
       setMapCenter(startCoord);
 
+      // Use routed-foot for pedestrian paths
       const routeUrl = `https://routing.openstreetmap.de/routed-foot/route/v1/driving/${startCoord.lng},${startCoord.lat};${endCoord.lng},${endCoord.lat}?overview=full&geometries=geojson`;
       const routeRes = await fetch(routeUrl);
       const routeJson = await routeRes.json();
