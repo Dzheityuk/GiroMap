@@ -3,7 +3,7 @@ import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
 import SearchBar from './components/SearchBar';
 import { AppMode, Coordinate, SensorData, SearchResult, Language, PickingMode, MapRotationMode } from './types';
-import { calculateNewPosition, reverseGeocode } from './services/geoUtils';
+import { calculateNewPosition, reverseGeocode, getDistance } from './services/geoUtils';
 import { getDestinationInfo } from './services/geminiService';
 import { DEFAULT_CENTER, STEP_LENGTH, MOTION_THRESHOLD, TRANSLATIONS } from './constants';
 
@@ -13,7 +13,7 @@ const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.PLANNING);
   const [userPosition, setUserPosition] = useState<Coordinate>(DEFAULT_CENTER);
   const [mapCenter, setMapCenter] = useState<Coordinate>(DEFAULT_CENTER);
-  const [gpsEnabled, setGpsEnabled] = useState<boolean>(true); // Default ON
+  const [gpsEnabled, setGpsEnabled] = useState<boolean>(false); // DEFAULT OFF per request
   const [language, setLanguage] = useState<Language>('RU');
   
   // Route & Path
@@ -26,7 +26,7 @@ const App: React.FC = () => {
   // Sensors
   const [sensorData, setSensorData] = useState<SensorData>({ steps: 0, heading: 0, isWalking: false });
   const [permissionsGranted, setPermissionsGranted] = useState<boolean>(false);
-  const [headingOffset, setHeadingOffset] = useState<number>(0); // Calibration offset
+  const [headingOffset, setHeadingOffset] = useState<number>(0);
 
   // Display Mode
   const [rotationMode, setRotationMode] = useState<MapRotationMode>('NORTH_UP');
@@ -39,12 +39,12 @@ const App: React.FC = () => {
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
   const [correctionInput, setCorrectionInput] = useState('');
 
-  // --- Refs for Sensor Loop ---
+  // --- Refs ---
   const lastStepTime = useRef<number>(0);
-  const headingRef = useRef<number>(0); // Raw heading
-  const smoothedHeadingRef = useRef<number>(0); // Smoothed heading for display
+  const headingRef = useRef<number>(0);
+  const smoothedHeadingRef = useRef<number>(0);
 
-  // --- Splash Screen Timer ---
+  // --- Splash Screen ---
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
@@ -52,10 +52,9 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // --- Initialization & GPS ---
+  // --- GPS Logic ---
   useEffect(() => {
     let watchId: number | null = null;
-
     if (navigator.geolocation && gpsEnabled) {
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
@@ -73,61 +72,46 @@ const App: React.FC = () => {
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
-
     return () => {
       if (watchId !== null) navigator.geolocation.clearWatch(watchId);
     };
   }, [gpsEnabled, mode, fromAddress]);
 
-  // --- Smoothing Algorithm ---
-  // Calculates shortest rotation direction and applies a low-pass filter (lerp)
+  // --- Smoothing ---
   const smoothHeading = (current: number, target: number, factor: number) => {
     let delta = target - current;
-    // Handle wrap-around (e.g. 350 -> 10)
     if (delta > 180) delta -= 360;
     if (delta < -180) delta += 360;
-    
-    // REDUCED SENSITIVITY: 0.05 factor for heavy, smooth rotation (30-50% less sensitive)
     return (current + delta * factor + 360) % 360;
   };
 
-  // --- Sensor Loop (Animation Frame) ---
+  // --- Sensor Loop ---
   useEffect(() => {
     let animationFrameId: number;
-
     const updateLoop = () => {
-      // 1. Get current raw target
       const rawTarget = (headingRef.current + headingOffset) % 360;
-      
-      // 2. Smooth it
       const smoothed = smoothHeading(smoothedHeadingRef.current, rawTarget, 0.05); 
       smoothedHeadingRef.current = smoothed;
 
-      // 3. Update React State only if changed significantly to avoid rerenders
       setSensorData(prev => {
         if (Math.abs(prev.heading - smoothed) > 0.1) {
             return { ...prev, heading: smoothed };
         }
         return prev;
       });
-
       animationFrameId = requestAnimationFrame(updateLoop);
     };
-
     if (permissionsGranted) {
       updateLoop();
     }
-
     return () => cancelAnimationFrame(animationFrameId);
   }, [permissionsGranted, headingOffset]);
 
 
-  // --- Core Logic: Register a Step (PDR) ---
+  // --- PDR Logic ---
   const registerStep = useCallback(() => {
     setUserPosition(prevPos => {
-      // Use the smoothed heading for movement to avoid jittery path
       const newPos = calculateNewPosition(prevPos, STEP_LENGTH, smoothedHeadingRef.current);
-      
       setWalkedPath(prevPath => [...prevPath, newPos]);
       return newPos;
     });
@@ -139,7 +123,7 @@ const App: React.FC = () => {
     }));
   }, []);
 
-  // --- Sensor Handlers ---
+  // --- Sensor Listeners ---
   const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
     let rawHeading = 0;
     const ev = event as any;
@@ -148,21 +132,15 @@ const App: React.FC = () => {
     } else if (event.alpha !== null) {
       rawHeading = 360 - event.alpha;
     }
-    // Just update the ref, the loop handles smoothing
     headingRef.current = rawHeading;
   }, []);
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
     if (mode !== AppMode.TRACKING && mode !== AppMode.BACKTRACK) return;
-    
     const acc = event.accelerationIncludingGravity;
-    // Safety check for null acceleration data
     if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
-
     const magnitude = Math.sqrt(acc.x*acc.x + acc.y*acc.y + acc.z*acc.z);
-    const delta = Math.abs(magnitude - 9.8);
-
-    if (delta > MOTION_THRESHOLD) {
+    if (Math.abs(magnitude - 9.8) > MOTION_THRESHOLD) {
       const now = Date.now();
       if (now - lastStepTime.current > 500) {
         lastStepTime.current = now;
@@ -186,13 +164,8 @@ const App: React.FC = () => {
       try {
         const permissionState = await (DeviceOrientationEvent as any).requestPermission();
         if (permissionState === 'granted') setPermissionsGranted(true);
-      } catch (e) {
-        // Even if error, try to set granted as some devices don't support the promise correctly
-        setPermissionsGranted(true);
-      }
-    } else {
-      setPermissionsGranted(true);
-    }
+      } catch (e) { setPermissionsGranted(true); }
+    } else { setPermissionsGranted(true); }
   };
 
   const geocodeAddress = async (query: string): Promise<{ coord: Coordinate, displayName: string } | null> => {
@@ -205,29 +178,25 @@ const App: React.FC = () => {
           displayName: data[0].display_name
         };
       }
-    } catch (e) {
-      console.error("Geocoding failed", e);
-    }
+    } catch (e) { console.error("Geocoding failed", e); }
     return null;
   };
 
-  // Helper function to fetch and set route from A to B
   const updateRoute = async (start: Coordinate, end: Coordinate) => {
     const routeUrl = `https://routing.openstreetmap.de/routed-foot/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
     try {
       const routeRes = await fetch(routeUrl);
       const routeJson = await routeRes.json();
-
       if (routeJson.routes && routeJson.routes.length > 0) {
         const coords = routeJson.routes[0].geometry.coordinates.map((c: number[]) => ({
           lat: c[1],
           lng: c[0]
         }));
         setPlannedRoute(coords);
+        return coords;
       }
-    } catch (e) {
-      console.error("Route update failed", e);
-    }
+    } catch (e) { console.error("Route update failed", e); }
+    return null;
   };
 
   const handleRouteRequest = async () => {
@@ -259,11 +228,31 @@ const App: React.FC = () => {
       
       const context = await getDestinationInfo(endResult.displayName);
       setAiContext(context);
-    } catch (e) {
-      console.error("Routing failed", e);
-    } finally {
-      setIsSearching(false);
-    }
+    } catch (e) { console.error("Routing failed", e); } 
+    finally { setIsSearching(false); }
+  };
+
+  // Helper to Snap Walked Path to the Route
+  // Finds the point on the planned route closest to the current correction,
+  // and creates a walked path that perfectly follows the route up to that point.
+  const snapToPlannedRoute = (currentRoute: Coordinate[], newPos: Coordinate) => {
+    if (!currentRoute || currentRoute.length === 0) return [newPos];
+    
+    let minIdx = 0;
+    let minDst = Infinity;
+    
+    currentRoute.forEach((pt, idx) => {
+        const d = getDistance(pt, newPos);
+        if (d < minDst) {
+            minDst = d;
+            minIdx = idx;
+        }
+    });
+
+    // Return segment + new point to ensure connection
+    const snapped = currentRoute.slice(0, minIdx + 1);
+    // snapped.push(newPos); // Optional: append exact GPS fix or just stick to route? Sticking to route is cleaner visually.
+    return snapped;
   };
 
   const handleCorrectionSubmit = async (address: string) => {
@@ -272,17 +261,18 @@ const App: React.FC = () => {
     if (result) {
       const newPos = result.coord;
       setUserPosition(newPos);
-      
-      // Update visual path
-      setWalkedPath(prev => {
-        const newPath = [...prev];
-        if (newPath.length > 0) newPath[newPath.length - 1] = newPos;
-        else newPath.push(newPos);
-        return newPath;
-      });
       setMapCenter(newPos);
+      
+      // Update visual path using snapping if a route exists
+      if (plannedRoute.length > 0) {
+          const snapped = snapToPlannedRoute(plannedRoute, newPos);
+          setWalkedPath(snapped);
+      } else {
+          // No route, just append
+          setWalkedPath(prev => [...prev, newPos]);
+      }
 
-      // --- REROUTE IF TRACKING ---
+      // Reroute from new position to destination
       if (toAddress && (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK)) {
           const endResult = await geocodeAddress(toAddress);
           if (endResult) {
@@ -322,21 +312,23 @@ const App: React.FC = () => {
     setPickingTarget('correction');
   };
   
-  // NEW: Handle snapping to map center during correction
   const handleConfirmCorrectionMapPick = async () => {
-    // 1. Snap User Position to the Reticle (Map Center)
     const newPos = mapCenter;
     setUserPosition(newPos);
 
-    // 2. Fix the path history to snap the line visually
-    setWalkedPath(prev => {
-      const newPath = [...prev];
-      if (newPath.length > 0) newPath[newPath.length - 1] = newPos;
-      else newPath.push(newPos);
-      return newPath;
-    });
+    // Update visual path using snapping if a route exists
+    if (plannedRoute.length > 0) {
+        const snapped = snapToPlannedRoute(plannedRoute, newPos);
+        setWalkedPath(snapped);
+    } else {
+        setWalkedPath(prev => {
+           const newPath = [...prev];
+           newPath.push(newPos);
+           return newPath;
+        });
+    }
 
-    // 3. --- REROUTE IF TRACKING ---
+    // Reroute from new position to destination
     if (toAddress && (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK)) {
         const endResult = await geocodeAddress(toAddress);
         if (endResult) {
@@ -344,45 +336,48 @@ const App: React.FC = () => {
         }
     }
     
-    // 4. Close picking mode
     setPickingTarget(null);
-    setCorrectionInput(''); // clear input
-    
-    // Optional: Reverse geocode silently to update address cache if needed
-    reverseGeocode(newPos).then(addr => {
-        // Just log or could update UI toast
-    });
+    setCorrectionInput('');
   };
 
   const handleCenterChange = (center: Coordinate) => {
-    // In planning, we track center for picking.
-    // In correction picking mode (TRACKING), we also track it.
     if (mode === AppMode.PLANNING || pickingTarget === 'correction') {
       setMapCenter(center);
     }
   };
   
-  // Logic: "I'm Here" sets the current map center as the Start Point (Point A)
   const handleImHere = async () => {
-    // 1. Snap User Position to the Reticle (Map Center)
     setUserPosition(mapCenter);
-    
-    // 2. Get Address
     const addr = await reverseGeocode(mapCenter);
-    
-    // 3. Set as Point A (From)
     setFromAddress(addr);
-    
-    // 4. Update map center to ensure sync
     setMapCenter(mapCenter);
+    
+    // Auto-Build Route
+    if (toAddress) {
+        setIsSearching(true);
+        const endResult = await geocodeAddress(toAddress);
+        if (endResult) {
+            await updateRoute(mapCenter, endResult.coord);
+            getDestinationInfo(endResult.displayName).then(setAiContext);
+        }
+        setIsSearching(false);
+    }
   };
 
-  // Logic: "To Here" sets the current map center as the Destination (Point B)
   const handleToHere = async () => {
-    // 1. Get Address of the crosshair
     const addr = await reverseGeocode(mapCenter);
-    // 2. Set as Point B (To)
     setToAddress(addr);
+    
+    // Auto-Build Route
+    if (fromAddress) {
+        setIsSearching(true);
+        const startResult = await geocodeAddress(fromAddress);
+        if (startResult) {
+            await updateRoute(startResult.coord, mapCenter);
+            getDestinationInfo(addr).then(setAiContext);
+        }
+        setIsSearching(false);
+    }
   };
 
   const handleStart = () => {
@@ -390,9 +385,7 @@ const App: React.FC = () => {
     setWalkedPath([userPosition]);
   };
 
-  const handleStop = () => {
-    setMode(AppMode.BACKTRACK);
-  };
+  const handleStop = () => setMode(AppMode.BACKTRACK);
   
   const handleReturn = () => {
      const pathBack = [...walkedPath].reverse();
@@ -421,13 +414,14 @@ const App: React.FC = () => {
   const handleLongPress = (coord: Coordinate) => {
     if (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK) {
       setUserPosition(coord);
-      setWalkedPath(prev => {
-        const newPath = [...prev];
-        if (newPath.length > 0) newPath[newPath.length - 1] = coord;
-        else newPath.push(coord);
-        return newPath;
-      });
-      // Reroute on long press
+      // Snap on long press too
+      if (plannedRoute.length > 0) {
+         const snapped = snapToPlannedRoute(plannedRoute, coord);
+         setWalkedPath(snapped);
+      } else {
+         setWalkedPath(prev => [...prev, coord]);
+      }
+      
       if (toAddress) {
         geocodeAddress(toAddress).then(end => {
            if (end) updateRoute(coord, end.coord);
@@ -474,10 +468,6 @@ const App: React.FC = () => {
 
       <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)] z-[500]" />
       
-      {/* 
-         Floating "HERE" Button - Positioned on the RIGHT side 
-         Only visible during Correction Picking 
-      */}
       {pickingTarget === 'correction' && (
         <div className="absolute right-4 top-1/2 -translate-y-1/2 z-[1500] animate-in slide-in-from-right duration-300">
            <button 
@@ -505,7 +495,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Hide Dashboard during map picking to give more view space */}
       {pickingTarget !== 'correction' && (
         <Dashboard 
           mode={mode}
@@ -537,7 +526,6 @@ const App: React.FC = () => {
         />
       )}
       
-      {/* If picking correction, show a simple "Cancel" button at bottom instead of full dashboard */}
       {pickingTarget === 'correction' && (
         <div className="absolute bottom-10 left-0 right-0 z-[1000] flex justify-center pb-[env(safe-area-inset-bottom)]">
            <button 
