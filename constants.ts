@@ -20,7 +20,7 @@ export const TRANSLATIONS = {
   RU: {
     dist: 'Дистанция',
     azimuth: 'Азимут',
-    steps: 'Шаги',
+    steps: 'ШАГИ',
     target: 'Цель',
     notSet: 'НЕ ЗАДАНА',
     allowSensors: 'РАЗРЕШИТЬ ДАТЧИКИ',
@@ -57,14 +57,15 @@ export const TRANSLATIONS = {
     imHere: 'Я ТУТ',
     toHere: 'СЮДА',
     hereBtn: 'ТУТ',
-    calib: 'КАЛИБР',
+    calib: 'КАЛИБРОВКА ПОЛОЖЕНИЯ',
     modeNorth: 'СЕВЕР',
-    modeHead: 'КУРС'
+    modeHead: 'КУРС',
+    resetPath: 'СБРОС ПУТИ'
   },
   EN: {
     dist: 'Distance',
     azimuth: 'Azimuth',
-    steps: 'Steps',
+    steps: 'STEPS',
     target: 'Target',
     notSet: 'NOT SET',
     allowSensors: 'ALLOW SENSORS',
@@ -101,8 +102,9 @@ export const TRANSLATIONS = {
     imHere: 'I\'M HERE',
     toHere: 'TO HERE',
     hereBtn: 'HERE',
-    calib: 'CALIB',
+    calib: 'CALIBRATE POSITION',
     modeNorth: 'NORTH',
-    modeHead: 'HEAD'
+    modeHead: 'HEAD',
+    resetPath: 'RESET PATH'
   }
 };

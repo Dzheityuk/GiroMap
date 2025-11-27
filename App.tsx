@@ -90,11 +90,15 @@ const App: React.FC = () => {
     let animationFrameId: number;
     const updateLoop = () => {
       const rawTarget = (headingRef.current + headingOffset) % 360;
-      const smoothed = smoothHeading(smoothedHeadingRef.current, rawTarget, 0.05); 
+      
+      // REDUCED SENSITIVITY: 0.02 makes it very heavy/smooth (less jitter)
+      const smoothed = smoothHeading(smoothedHeadingRef.current, rawTarget, 0.02); 
+      
       smoothedHeadingRef.current = smoothed;
 
       setSensorData(prev => {
-        if (Math.abs(prev.heading - smoothed) > 0.1) {
+        // Only update state if change is noticeable to prevent React render spam
+        if (Math.abs(prev.heading - smoothed) > 0.05) {
             return { ...prev, heading: smoothed };
         }
         return prev;
@@ -232,9 +236,6 @@ const App: React.FC = () => {
     finally { setIsSearching(false); }
   };
 
-  // Helper to Snap Walked Path to the Route
-  // Finds the point on the planned route closest to the current correction,
-  // and creates a walked path that perfectly follows the route up to that point.
   const snapToPlannedRoute = (currentRoute: Coordinate[], newPos: Coordinate) => {
     if (!currentRoute || currentRoute.length === 0) return [newPos];
     
@@ -249,9 +250,7 @@ const App: React.FC = () => {
         }
     });
 
-    // Return segment + new point to ensure connection
     const snapped = currentRoute.slice(0, minIdx + 1);
-    // snapped.push(newPos); // Optional: append exact GPS fix or just stick to route? Sticking to route is cleaner visually.
     return snapped;
   };
 
@@ -263,16 +262,13 @@ const App: React.FC = () => {
       setUserPosition(newPos);
       setMapCenter(newPos);
       
-      // Update visual path using snapping if a route exists
       if (plannedRoute.length > 0) {
           const snapped = snapToPlannedRoute(plannedRoute, newPos);
           setWalkedPath(snapped);
       } else {
-          // No route, just append
           setWalkedPath(prev => [...prev, newPos]);
       }
 
-      // Reroute from new position to destination
       if (toAddress && (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK)) {
           const endResult = await geocodeAddress(toAddress);
           if (endResult) {
@@ -316,7 +312,6 @@ const App: React.FC = () => {
     const newPos = mapCenter;
     setUserPosition(newPos);
 
-    // Update visual path using snapping if a route exists
     if (plannedRoute.length > 0) {
         const snapped = snapToPlannedRoute(plannedRoute, newPos);
         setWalkedPath(snapped);
@@ -328,7 +323,6 @@ const App: React.FC = () => {
         });
     }
 
-    // Reroute from new position to destination
     if (toAddress && (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK)) {
         const endResult = await geocodeAddress(toAddress);
         if (endResult) {
@@ -352,7 +346,6 @@ const App: React.FC = () => {
     setFromAddress(addr);
     setMapCenter(mapCenter);
     
-    // Auto-Build Route
     if (toAddress) {
         setIsSearching(true);
         const endResult = await geocodeAddress(toAddress);
@@ -368,7 +361,6 @@ const App: React.FC = () => {
     const addr = await reverseGeocode(mapCenter);
     setToAddress(addr);
     
-    // Auto-Build Route
     if (fromAddress) {
         setIsSearching(true);
         const startResult = await geocodeAddress(fromAddress);
@@ -407,6 +399,10 @@ const App: React.FC = () => {
     setRotationMode('NORTH_UP');
   };
 
+  const handleClearPath = () => {
+    setWalkedPath([userPosition]);
+  };
+
   const handleToggleGps = () => setGpsEnabled(prev => !prev);
   const handleToggleLanguage = () => setLanguage(prev => prev === 'RU' ? 'EN' : 'RU');
   const handleToggleRotation = () => setRotationMode(prev => prev === 'NORTH_UP' ? 'HEADS_UP' : 'NORTH_UP');
@@ -414,7 +410,6 @@ const App: React.FC = () => {
   const handleLongPress = (coord: Coordinate) => {
     if (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK) {
       setUserPosition(coord);
-      // Snap on long press too
       if (plannedRoute.length > 0) {
          const snapped = snapToPlannedRoute(plannedRoute, coord);
          setWalkedPath(snapped);
@@ -523,6 +518,7 @@ const App: React.FC = () => {
           onToHere={handleToHere}
           rotationMode={rotationMode}
           onToggleRotation={handleToggleRotation}
+          onClearPath={handleClearPath}
         />
       )}
       
