@@ -1,5 +1,4 @@
 
-
 // Earth radius in meters
 export const EARTH_RADIUS = 6378137;
 
@@ -57,10 +56,18 @@ export const TRANSLATIONS = {
     imHere: 'Я ТУТ',
     toHere: 'СЮДА',
     hereBtn: 'ТУТ',
-    calib: 'КАЛИБРОВКА ПОЛОЖЕНИЯ',
-    modeNorth: 'СЕВЕР',
-    modeHead: 'КУРС',
-    resetPath: 'СБРОС ПУТИ'
+    calib: 'ЗАФИКСИРОВАТЬ КУРС',
+    unlock: 'РАЗБЛОКИРОВАТЬ',
+    resetPath: 'СБРОС ПУТИ',
+    help: 'ИНСТРУКЦИЯ',
+    helpTitle: 'КАК ПОЛЬЗОВАТЬСЯ',
+    helpText: [
+      '1. ПОИСК: Нажмите на лупу, выберите точку А и Б.',
+      '2. КУРС: Вращайте карту (джойстиком или двумя пальцами), чтобы выровнять маршрут "перед собой".',
+      '3. ФИКСАЦИЯ: Нажмите "ЗАФИКСИРОВАТЬ КУРС". Карта застынет.',
+      '4. ДВИЖЕНИЕ: Идите вперед. Датчики будут двигать вас строго по линии маршрута.',
+      '5. КОРРЕКЦИЯ: Если позиция сбилась, нажмите "Я ЗДЕСЬ" и укажите точку на карте.'
+    ]
   },
   EN: {
     dist: 'Distance',
@@ -102,9 +109,17 @@ export const TRANSLATIONS = {
     imHere: 'I\'M HERE',
     toHere: 'TO HERE',
     hereBtn: 'HERE',
-    calib: 'CALIBRATE POSITION',
-    modeNorth: 'NORTH',
-    modeHead: 'HEAD',
-    resetPath: 'RESET PATH'
+    calib: 'LOCK COURSE',
+    unlock: 'UNLOCK MAP',
+    resetPath: 'RESET PATH',
+    help: 'HELP',
+    helpTitle: 'HOW TO USE',
+    helpText: [
+      '1. SEARCH: Tap magnifier, pick Point A and B.',
+      '2. HEADING: Rotate map (joystick or two fingers) to align route "forward".',
+      '3. LOCK: Tap "LOCK COURSE". Map will freeze.',
+      '4. WALK: Move forward. Sensors will move you strictly along the blue line.',
+      '5. CORRECT: If position drifts, tap "I AM HERE" and pick point on map.'
+    ]
   }
 };

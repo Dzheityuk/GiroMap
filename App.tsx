@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
 import SearchBar from './components/SearchBar';
-import { AppMode, Coordinate, SensorData, SearchResult, Language, PickingMode, MapRotationMode } from './types';
+import { AppMode, Coordinate, SensorData, SearchResult, Language, PickingMode } from './types';
 import { calculateNewPosition, reverseGeocode, getDistance } from './services/geoUtils';
 import { getDestinationInfo } from './services/geminiService';
 import { DEFAULT_CENTER, STEP_LENGTH, MOTION_THRESHOLD, TRANSLATIONS } from './constants';
@@ -13,38 +14,30 @@ const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.PLANNING);
   const [userPosition, setUserPosition] = useState<Coordinate>(DEFAULT_CENTER);
   const [mapCenter, setMapCenter] = useState<Coordinate>(DEFAULT_CENTER);
-  const [gpsEnabled, setGpsEnabled] = useState<boolean>(false); // DEFAULT OFF per request
+  const [gpsEnabled, setGpsEnabled] = useState<boolean>(false);
   const [language, setLanguage] = useState<Language>('RU');
   
-  // Route & Path
   const [fromAddress, setFromAddress] = useState<string>('');
   const [toAddress, setToAddress] = useState<string>('');
   const [plannedRoute, setPlannedRoute] = useState<Coordinate[]>([]);
   const [walkedPath, setWalkedPath] = useState<Coordinate[]>([]);
   const [aiContext, setAiContext] = useState<string>('');
   
-  // Sensors
   const [sensorData, setSensorData] = useState<SensorData>({ steps: 0, heading: 0, isWalking: false });
   const [permissionsGranted, setPermissionsGranted] = useState<boolean>(false);
-  const [headingOffset, setHeadingOffset] = useState<number>(0);
 
-  // Display Mode
-  const [rotationMode, setRotationMode] = useState<MapRotationMode>('NORTH_UP');
+  // Manual Rotation & Lock State
+  const [manualRotation, setManualRotation] = useState<number>(0);
+  const [isMapLocked, setIsMapLocked] = useState<boolean>(false);
 
-  // UI
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [pickingTarget, setPickingTarget] = useState<PickingMode>(null);
 
-  // Correction Modal State
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
   const [correctionInput, setCorrectionInput] = useState('');
 
-  // --- Refs ---
   const lastStepTime = useRef<number>(0);
-  const headingRef = useRef<number>(0);
-  const smoothedHeadingRef = useRef<number>(0);
 
-  // --- Splash Screen ---
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
@@ -52,7 +45,7 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // --- GPS Logic ---
+  // --- GPS ---
   useEffect(() => {
     let watchId: number | null = null;
     if (navigator.geolocation && gpsEnabled) {
@@ -66,77 +59,78 @@ const App: React.FC = () => {
             }
           }
         },
-        (err) => {
-          console.warn("GPS Access Failed or Denied.", err.message);
-        },
+        (err) => console.warn(err.message),
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
-    return () => {
-      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-    };
+    return () => { if (watchId !== null) navigator.geolocation.clearWatch(watchId); };
   }, [gpsEnabled, mode, fromAddress]);
 
-  // --- Smoothing ---
-  const smoothHeading = (current: number, target: number, factor: number) => {
-    let delta = target - current;
-    if (delta > 180) delta -= 360;
-    if (delta < -180) delta += 360;
-    return (current + delta * factor + 360) % 360;
+
+  // --- RAIL SHOOTER LOGIC (Core Request) ---
+  const moveAlongRoute = (currentPos: Coordinate, route: Coordinate[], dist: number): Coordinate => {
+    // 1. Find closest point index on route (simplified)
+    let minDst = Infinity;
+    let closestIdx = 0;
+    
+    for (let i = 0; i < route.length; i++) {
+        const d = getDistance(route[i], currentPos);
+        if (d < minDst) {
+            minDst = d;
+            closestIdx = i;
+        }
+    }
+
+    // 2. If we are at the end, stay there
+    if (closestIdx >= route.length - 1) return currentPos;
+
+    // 3. Move from closest point towards next point
+    const currentPt = route[closestIdx];
+    const nextPt = route[closestIdx + 1];
+    
+    // Calculate bearing between route points
+    const lat1 = (currentPt.lat * Math.PI) / 180;
+    const lon1 = (currentPt.lng * Math.PI) / 180;
+    const lat2 = (nextPt.lat * Math.PI) / 180;
+    const lon2 = (nextPt.lng * Math.PI) / 180;
+    
+    const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
+    const bearingRad = Math.atan2(y, x);
+    const bearingDeg = (bearingRad * 180 / Math.PI + 360) % 360;
+
+    // 4. Calculate new position moving 'dist' along that bearing
+    // We treat 'currentPos' as if it's on the line, moving towards nextPt
+    return calculateNewPosition(currentPos, dist, bearingDeg);
   };
 
-  // --- Sensor Loop ---
-  useEffect(() => {
-    let animationFrameId: number;
-    const updateLoop = () => {
-      const rawTarget = (headingRef.current + headingOffset) % 360;
-      
-      // REDUCED SENSITIVITY: 0.02 makes it very heavy/smooth (less jitter)
-      const smoothed = smoothHeading(smoothedHeadingRef.current, rawTarget, 0.02); 
-      
-      smoothedHeadingRef.current = smoothed;
-
-      setSensorData(prev => {
-        // Only update state if change is noticeable to prevent React render spam
-        if (Math.abs(prev.heading - smoothed) > 0.05) {
-            return { ...prev, heading: smoothed };
-        }
-        return prev;
-      });
-      animationFrameId = requestAnimationFrame(updateLoop);
-    };
-    if (permissionsGranted) {
-      updateLoop();
-    }
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [permissionsGranted, headingOffset]);
-
-
-  // --- PDR Logic ---
   const registerStep = useCallback(() => {
     setUserPosition(prevPos => {
-      const newPos = calculateNewPosition(prevPos, STEP_LENGTH, smoothedHeadingRef.current);
+      let newPos: Coordinate;
+
+      if (plannedRoute.length > 0) {
+        // MAGNET MODE: Move along the planned route
+        newPos = moveAlongRoute(prevPos, plannedRoute, STEP_LENGTH);
+      } else {
+        // FREE MODE: Move "UP" relative to the map's manual rotation
+        // Since we rotate the map by `manualRotation`, "UP" on screen corresponds to `-manualRotation` bearing.
+        newPos = calculateNewPosition(prevPos, STEP_LENGTH, -manualRotation);
+      }
+      
       setWalkedPath(prevPath => [...prevPath, newPos]);
       return newPos;
     });
 
-    setSensorData(prev => ({
-      ...prev,
-      steps: prev.steps + 1,
-      isWalking: true
-    }));
-  }, []);
+    setSensorData(prev => ({ ...prev, steps: prev.steps + 1, isWalking: true }));
+  }, [plannedRoute, manualRotation]);
 
-  // --- Sensor Listeners ---
   const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
+    // Compass is now strictly visual (for the dashboard number only)
     let rawHeading = 0;
     const ev = event as any;
-    if (ev.webkitCompassHeading) {
-      rawHeading = ev.webkitCompassHeading;
-    } else if (event.alpha !== null) {
-      rawHeading = 360 - event.alpha;
-    }
-    headingRef.current = rawHeading;
+    if (ev.webkitCompassHeading) rawHeading = ev.webkitCompassHeading;
+    else if (event.alpha !== null) rawHeading = 360 - event.alpha;
+    setSensorData(prev => ({...prev, heading: rawHeading}));
   }, []);
 
   const handleMotion = useCallback((event: DeviceMotionEvent) => {
@@ -177,12 +171,9 @@ const App: React.FC = () => {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
       const data: SearchResult[] = await res.json();
       if (data && data.length > 0) {
-        return {
-          coord: { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) },
-          displayName: data[0].display_name
-        };
+        return { coord: { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }, displayName: data[0].display_name };
       }
-    } catch (e) { console.error("Geocoding failed", e); }
+    } catch (e) {}
     return null;
   };
 
@@ -192,14 +183,11 @@ const App: React.FC = () => {
       const routeRes = await fetch(routeUrl);
       const routeJson = await routeRes.json();
       if (routeJson.routes && routeJson.routes.length > 0) {
-        const coords = routeJson.routes[0].geometry.coordinates.map((c: number[]) => ({
-          lat: c[1],
-          lng: c[0]
-        }));
+        const coords = routeJson.routes[0].geometry.coordinates.map((c: number[]) => ({ lat: c[1], lng: c[0] }));
         setPlannedRoute(coords);
         return coords;
       }
-    } catch (e) { console.error("Route update failed", e); }
+    } catch (e) {}
     return null;
   };
 
@@ -207,51 +195,30 @@ const App: React.FC = () => {
     setIsSearching(true);
     setPlannedRoute([]);
     setAiContext('');
-
     try {
       let startCoord = userPosition;
-      
       if (fromAddress.trim()) {
         const startResult = await geocodeAddress(fromAddress);
-        if (startResult) {
-          startCoord = startResult.coord;
-          setUserPosition(startCoord);
-        }
+        if (startResult) { startCoord = startResult.coord; setUserPosition(startCoord); }
       }
-
       const endResult = await geocodeAddress(toAddress);
-      if (!endResult) {
-        alert(TRANSLATIONS[language].geoError);
-        setIsSearching(false);
-        return;
-      }
-      const endCoord = endResult.coord;
-      setMapCenter(startCoord);
-
-      await updateRoute(startCoord, endCoord);
+      if (!endResult) { alert(TRANSLATIONS[language].geoError); setIsSearching(false); return; }
       
-      const context = await getDestinationInfo(endResult.displayName);
-      setAiContext(context);
-    } catch (e) { console.error("Routing failed", e); } 
-    finally { setIsSearching(false); }
+      setMapCenter(startCoord);
+      await updateRoute(startCoord, endResult.coord);
+      getDestinationInfo(endResult.displayName).then(setAiContext);
+    } catch (e) {} finally { setIsSearching(false); }
   };
 
   const snapToPlannedRoute = (currentRoute: Coordinate[], newPos: Coordinate) => {
     if (!currentRoute || currentRoute.length === 0) return [newPos];
-    
     let minIdx = 0;
     let minDst = Infinity;
-    
     currentRoute.forEach((pt, idx) => {
         const d = getDistance(pt, newPos);
-        if (d < minDst) {
-            minDst = d;
-            minIdx = idx;
-        }
+        if (d < minDst) { minDst = d; minIdx = idx; }
     });
-
-    const snapped = currentRoute.slice(0, minIdx + 1);
-    return snapped;
+    return currentRoute.slice(0, minIdx + 1);
   };
 
   const handleCorrectionSubmit = async (address: string) => {
@@ -262,82 +229,46 @@ const App: React.FC = () => {
       setUserPosition(newPos);
       setMapCenter(newPos);
       
-      if (plannedRoute.length > 0) {
-          const snapped = snapToPlannedRoute(plannedRoute, newPos);
-          setWalkedPath(snapped);
-      } else {
-          setWalkedPath(prev => [...prev, newPos]);
-      }
+      if (plannedRoute.length > 0) setWalkedPath(snapToPlannedRoute(plannedRoute, newPos));
+      else setWalkedPath(prev => [...prev, newPos]);
 
       if (toAddress && (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK)) {
           const endResult = await geocodeAddress(toAddress);
-          if (endResult) {
-             await updateRoute(newPos, endResult.coord);
-          }
+          if (endResult) await updateRoute(newPos, endResult.coord);
       }
-      
       setShowCorrectionModal(false);
       setCorrectionInput('');
-    } else {
-      alert(TRANSLATIONS[language].correctionError);
-    }
+    } else { alert(TRANSLATIONS[language].correctionError); }
     setIsSearching(false);
   };
 
   const handleMapClick = async (coord: Coordinate) => {
     if (pickingTarget) {
       const addr = await reverseGeocode(coord);
-      if (pickingTarget === 'from') {
-        setFromAddress(addr);
-        setUserPosition(coord);
-        setMapCenter(coord);
-        setPickingTarget(null);
-      } else if (pickingTarget === 'to') {
-        setToAddress(addr);
-        setPickingTarget(null);
-      } else if (pickingTarget === 'correction') {
-        setCorrectionInput(addr);
-        setShowCorrectionModal(true);
-        setPickingTarget(null);
-      }
+      if (pickingTarget === 'from') { setFromAddress(addr); setUserPosition(coord); setMapCenter(coord); setPickingTarget(null); }
+      else if (pickingTarget === 'to') { setToAddress(addr); setPickingTarget(null); }
+      else if (pickingTarget === 'correction') { setCorrectionInput(addr); setShowCorrectionModal(true); setPickingTarget(null); }
     }
   };
 
-  const handlePickCorrectionOnMap = () => {
-    setShowCorrectionModal(false);
-    setPickingTarget('correction');
-  };
+  const handlePickCorrectionOnMap = () => { setShowCorrectionModal(false); setPickingTarget('correction'); };
   
   const handleConfirmCorrectionMapPick = async () => {
     const newPos = mapCenter;
     setUserPosition(newPos);
-
-    if (plannedRoute.length > 0) {
-        const snapped = snapToPlannedRoute(plannedRoute, newPos);
-        setWalkedPath(snapped);
-    } else {
-        setWalkedPath(prev => {
-           const newPath = [...prev];
-           newPath.push(newPos);
-           return newPath;
-        });
-    }
+    if (plannedRoute.length > 0) setWalkedPath(snapToPlannedRoute(plannedRoute, newPos));
+    else setWalkedPath(prev => [...prev, newPos]);
 
     if (toAddress && (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK)) {
         const endResult = await geocodeAddress(toAddress);
-        if (endResult) {
-            await updateRoute(newPos, endResult.coord);
-        }
+        if (endResult) await updateRoute(newPos, endResult.coord);
     }
-    
     setPickingTarget(null);
     setCorrectionInput('');
   };
 
   const handleCenterChange = (center: Coordinate) => {
-    if (mode === AppMode.PLANNING || pickingTarget === 'correction') {
-      setMapCenter(center);
-    }
+    if (mode === AppMode.PLANNING || pickingTarget === 'correction') setMapCenter(center);
   };
   
   const handleImHere = async () => {
@@ -345,14 +276,10 @@ const App: React.FC = () => {
     const addr = await reverseGeocode(mapCenter);
     setFromAddress(addr);
     setMapCenter(mapCenter);
-    
     if (toAddress) {
         setIsSearching(true);
         const endResult = await geocodeAddress(toAddress);
-        if (endResult) {
-            await updateRoute(mapCenter, endResult.coord);
-            getDestinationInfo(endResult.displayName).then(setAiContext);
-        }
+        if (endResult) { await updateRoute(mapCenter, endResult.coord); getDestinationInfo(endResult.displayName).then(setAiContext); }
         setIsSearching(false);
     }
   };
@@ -360,25 +287,16 @@ const App: React.FC = () => {
   const handleToHere = async () => {
     const addr = await reverseGeocode(mapCenter);
     setToAddress(addr);
-    
     if (fromAddress) {
         setIsSearching(true);
         const startResult = await geocodeAddress(fromAddress);
-        if (startResult) {
-            await updateRoute(startResult.coord, mapCenter);
-            getDestinationInfo(addr).then(setAiContext);
-        }
+        if (startResult) { await updateRoute(startResult.coord, mapCenter); getDestinationInfo(addr).then(setAiContext); }
         setIsSearching(false);
     }
   };
 
-  const handleStart = () => {
-    setMode(AppMode.TRACKING);
-    setWalkedPath([userPosition]);
-  };
-
+  const handleStart = () => { setMode(AppMode.TRACKING); setWalkedPath([userPosition]); };
   const handleStop = () => setMode(AppMode.BACKTRACK);
-  
   const handleReturn = () => {
      const pathBack = [...walkedPath].reverse();
      setPlannedRoute(pathBack);
@@ -395,44 +313,28 @@ const App: React.FC = () => {
     setFromAddress('');
     setToAddress('');
     setAiContext('');
-    setHeadingOffset(0);
-    setRotationMode('NORTH_UP');
+    setManualRotation(0); // Reset manual rotation
+    setIsMapLocked(false);
   };
 
-  const handleClearPath = () => {
-    setWalkedPath([userPosition]);
-  };
-
+  const handleClearPath = () => setWalkedPath([userPosition]);
   const handleToggleGps = () => setGpsEnabled(prev => !prev);
   const handleToggleLanguage = () => setLanguage(prev => prev === 'RU' ? 'EN' : 'RU');
-  const handleToggleRotation = () => setRotationMode(prev => prev === 'NORTH_UP' ? 'HEADS_UP' : 'NORTH_UP');
+  
+  // Renamed to handleLockToggle - this is the "Calibration" button action now
+  const handleLockToggle = () => setIsMapLocked(prev => !prev);
 
   const handleLongPress = (coord: Coordinate) => {
     if (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK) {
       setUserPosition(coord);
-      if (plannedRoute.length > 0) {
-         const snapped = snapToPlannedRoute(plannedRoute, coord);
-         setWalkedPath(snapped);
-      } else {
-         setWalkedPath(prev => [...prev, coord]);
-      }
-      
-      if (toAddress) {
-        geocodeAddress(toAddress).then(end => {
-           if (end) updateRoute(coord, end.coord);
-        });
-      }
+      if (plannedRoute.length > 0) setWalkedPath(snapToPlannedRoute(plannedRoute, coord));
+      else setWalkedPath(prev => [...prev, coord]);
+      if (toAddress) geocodeAddress(toAddress).then(end => { if (end) updateRoute(coord, end.coord); });
     }
   };
   
-  const handleCalibrate = () => {
-    const currentRaw = headingRef.current;
-    const newOffset = -currentRaw;
-    setHeadingOffset(newOffset);
-  };
-
-  const handleManualRotation = (delta: number) => {
-    setHeadingOffset(prev => prev + delta);
+  const handleRotateDelta = (delta: number) => {
+    setManualRotation(prev => prev + delta);
   };
 
   const totalDistance = sensorData.steps * STEP_LENGTH;
@@ -449,16 +351,16 @@ const App: React.FC = () => {
       <MapComponent 
         center={mapCenter}
         userPosition={userPosition}
-        heading={sensorData.heading}
         plannedRoute={plannedRoute}
         walkedPath={walkedPath}
         mode={mode}
         onLongPress={handleLongPress}
         onMapClick={handleMapClick}
-        rotationMode={rotationMode}
         onCenterChange={handleCenterChange}
         pickingTarget={pickingTarget}
-        onRotateDelta={handleManualRotation}
+        manualRotation={manualRotation}
+        onRotateDelta={handleRotateDelta}
+        isLocked={isMapLocked}
       />
 
       <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)] z-[500]" />
@@ -513,12 +415,12 @@ const App: React.FC = () => {
           correctionInput={correctionInput}
           setCorrectionInput={setCorrectionInput}
           onPickCorrectionOnMap={handlePickCorrectionOnMap}
-          onCalibrate={handleCalibrate}
+          onCalibrate={handleLockToggle}
           onImHere={handleImHere}
           onToHere={handleToHere}
-          rotationMode={rotationMode}
-          onToggleRotation={handleToggleRotation}
+          isMapLocked={isMapLocked} // New prop
           onClearPath={handleClearPath}
+          onRotateDelta={handleRotateDelta} // Pass the handler!
         />
       )}
       

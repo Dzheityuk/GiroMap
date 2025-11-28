@@ -14,8 +14,6 @@ export type Language = 'RU' | 'EN';
 
 export type PickingMode = 'from' | 'to' | 'correction' | null;
 
-export type MapRotationMode = 'NORTH_UP' | 'HEADS_UP';
-
 export interface SearchResult {
   display_name: string;
   lat: string;
