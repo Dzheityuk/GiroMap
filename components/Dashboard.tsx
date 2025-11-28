@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { AppMode, SensorData, Language } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -65,16 +66,20 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [showHelpModal, setShowHelpModal] = useState(false);
   const t = TRANSLATIONS[language];
 
-  // --- Game Joystick Logic ---
+  // --- Joystick Logic ---
   const joystickRef = useRef<HTMLDivElement>(null);
-  const [isJoystickActive, setIsJoystickActive] = useState(false);
+  const [joystickActive, setJoystickActive] = useState(false);
   const [knobPos, setKnobPos] = useState({ x: 0, y: 0 });
   const lastAngle = useRef<number>(0);
 
-  const handleStart = (e: React.TouchEvent | React.MouseEvent) => {
-    if (isMapLocked) return;
-    setIsJoystickActive(true);
+  const handleJoystickStart = (e: React.TouchEvent | React.MouseEvent) => {
+    // Critical: Prevent scrolling while using joystick
+    if (e.cancelable) e.preventDefault();
     
+    if (isMapLocked) return;
+    setJoystickActive(true);
+    
+    // Set initial angle
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     
@@ -86,8 +91,9 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const handleMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!isJoystickActive || isMapLocked || !joystickRef.current) return;
+  const handleJoystickMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (e.cancelable) e.preventDefault();
+    if (!joystickActive || isMapLocked || !joystickRef.current) return;
     
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
@@ -97,11 +103,11 @@ const Dashboard: React.FC<DashboardProps> = ({
     const centerX = rect.left + radius;
     const centerY = rect.top + radius;
     
-    // 1. Calculate Knob Position (Visual)
+    // 1. Calculate Knob Visual Position
     let dx = clientX - centerX;
     let dy = clientY - centerY;
     const distance = Math.sqrt(dx*dx + dy*dy);
-    const maxDist = radius - 10; 
+    const maxDist = radius - 15; // Keep knob inside
     
     if (distance > maxDist) {
         const angle = Math.atan2(dy, dx);
@@ -114,6 +120,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     const currentAngle = Math.atan2(clientY - centerY, clientX - centerX) * 180 / Math.PI;
     let delta = currentAngle - lastAngle.current;
     
+    // Normalize delta for smooth 360 crossing
     if (delta > 180) delta -= 360;
     if (delta < -180) delta += 360;
 
@@ -121,9 +128,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     lastAngle.current = currentAngle;
   };
 
-  const handleEnd = () => {
-    setIsJoystickActive(false);
-    setKnobPos({ x: 0, y: 0 });
+  const handleJoystickEnd = (e: React.TouchEvent | React.MouseEvent) => {
+    if (e.cancelable) e.preventDefault();
+    setJoystickActive(false);
+    setKnobPos({ x: 0, y: 0 }); // Snap back to center
   };
 
   // --- Form Logic ---
@@ -159,29 +167,37 @@ const Dashboard: React.FC<DashboardProps> = ({
          </div>
       </div>
 
-      {/* VIRTUAL JOYSTICK (Bottom RIGHT, above dashboard) - MOVED UP from bottom-36 to bottom-48 */}
+      {/* 
+          VIRTUAL JOYSTICK (Bottom Right) 
+          Positioned on the right side for better ergonomics.
+      */}
       <div 
-        className={`absolute right-6 bottom-48 z-[1100] ${isMapLocked ? 'opacity-30 grayscale pointer-events-none' : 'opacity-90'}`}
-        onTouchStart={handleStart}
-        onTouchMove={handleMove}
-        onTouchEnd={handleEnd}
-        onMouseDown={handleStart}
-        onMouseMove={handleMove}
-        onMouseUp={handleEnd}
-        onMouseLeave={handleEnd}
+        className={`absolute right-8 bottom-40 z-[1100] touch-none ${isMapLocked ? 'opacity-30 grayscale pointer-events-none' : 'opacity-90'}`}
+        onTouchStart={handleJoystickStart}
+        onTouchMove={handleJoystickMove}
+        onTouchEnd={handleJoystickEnd}
+        onMouseDown={handleJoystickStart}
+        onMouseMove={handleJoystickMove}
+        onMouseUp={handleJoystickEnd}
+        onMouseLeave={handleJoystickEnd}
       >
+         {/* Outer Ring */}
          <div 
            ref={joystickRef}
-           className="w-24 h-24 rounded-full bg-black/30 backdrop-blur-sm border-2 border-white/20 shadow-[0_0_15px_rgba(0,0,0,0.5)] flex items-center justify-center relative touch-none"
+           className="w-24 h-24 rounded-full bg-black/30 backdrop-blur-sm border-2 border-white/20 shadow-[0_0_15px_rgba(0,0,0,0.5)] flex items-center justify-center relative select-none"
          >
+            {/* Inner Knob */}
             <div 
-              className="w-10 h-10 rounded-full bg-white/80 shadow-lg absolute transition-transform duration-75 ease-linear"
+              className="w-12 h-12 rounded-full bg-white/90 shadow-lg absolute transition-transform duration-75 ease-linear pointer-events-none flex items-center justify-center"
               style={{ 
                   transform: `translate(${knobPos.x}px, ${knobPos.y}px)` 
               }}
             >
-                <div className="w-full h-full rounded-full border border-black/10 opacity-50 bg-gradient-to-br from-white to-gray-300" />
+                <div className="w-8 h-8 rounded-full border border-black/10 opacity-50 bg-gradient-to-br from-gray-100 to-gray-400" />
             </div>
+            
+            {/* Simple decoration */}
+            <div className="absolute top-1 text-[8px] text-white/30 font-mono pointer-events-none">ROT</div>
          </div>
       </div>
 
@@ -283,41 +299,97 @@ const Dashboard: React.FC<DashboardProps> = ({
       {showHelpModal && (
         <div className="absolute inset-0 z-[3000] bg-black/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
            <div className="w-full max-w-sm bg-neutral-900 border border-neutral-700 p-6 rounded-2xl shadow-2xl relative">
-              <button onClick={() => setShowHelpModal(false)} className="absolute top-3 right-3 text-gray-500 hover:text-white">✕</button>
-              <h3 className="text-white text-2xl font-handjet font-bold mb-4 border-b border-white/10 pb-2">{t.helpTitle}</h3>
+              <button 
+                onClick={() => setShowHelpModal(false)}
+                className="absolute top-3 right-3 text-gray-500 hover:text-white"
+              >✕</button>
+              
+              <h3 className="text-white text-2xl font-handjet font-bold mb-4 border-b border-white/10 pb-2">
+                {t.helpTitle}
+              </h3>
+              
               <ul className="text-gray-300 font-mono text-sm space-y-3 leading-relaxed">
-                {(t.helpText as string[]).map((line, i) => (<li key={i}>{line}</li>))}
+                {(t.helpText as string[]).map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
               </ul>
            </div>
         </div>
       )}
 
-      {/* Correction Modal */}
+      {/* Other Modals (Correction & Stop) */}
       {showCorrectionModal && (
         <div className="absolute inset-0 z-[2000] bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-200">
           <form onSubmit={handleFormSubmit} className="w-full max-w-sm bg-neutral-900 border border-neutral-700 p-5 rounded-2xl shadow-2xl font-mono">
-            <h3 className="text-orange-500 text-2xl font-handjet font-bold mb-3 uppercase text-center border-b border-neutral-800 pb-2 tracking-widest">{t.correctionTitle}</h3>
-            <input autoFocus type="text" value={correctionInput} onChange={(e) => setCorrectionInput(e.target.value)} placeholder={t.placeholderAddr} className="w-full bg-black border border-neutral-600 text-white text-base p-2 rounded-lg mb-3 focus:border-white focus:outline-none uppercase" />
-            <button type="button" onClick={onPickCorrectionOnMap} className="w-full mb-3 bg-neutral-800 border border-neutral-600 text-gray-300 py-2 rounded-lg uppercase text-lg font-handjet font-bold hover:bg-neutral-700 flex items-center justify-center gap-2">{t.pickOnMapBtn}</button>
+            <h3 className="text-orange-500 text-2xl font-handjet font-bold mb-3 uppercase text-center border-b border-neutral-800 pb-2 tracking-widest">
+              {t.correctionTitle}
+            </h3>
+            
+            <input
+              autoFocus
+              type="text"
+              value={correctionInput}
+              onChange={(e) => setCorrectionInput(e.target.value)}
+              placeholder={t.placeholderAddr}
+              className="w-full bg-black border border-neutral-600 text-white text-base p-2 rounded-lg mb-3 focus:border-white focus:outline-none uppercase"
+            />
+            
+            <button
+               type="button"
+               onClick={onPickCorrectionOnMap}
+               className="w-full mb-3 bg-neutral-800 border border-neutral-600 text-gray-300 py-2 rounded-lg uppercase text-lg font-handjet font-bold hover:bg-neutral-700 flex items-center justify-center gap-2"
+            >
+               {t.pickOnMapBtn}
+            </button>
+
             <div className="flex gap-2 font-handjet">
-              <button type="button" onClick={() => setShowCorrectionModal(false)} className="flex-1 bg-neutral-800 text-white py-2 rounded-lg uppercase text-lg font-bold hover:bg-neutral-700">{t.cancel}</button>
-              <button type="submit" className="flex-1 bg-orange-600 text-white py-2 rounded-lg uppercase text-lg font-bold hover:bg-orange-700">{t.confirm}</button>
+              <button
+                type="button"
+                onClick={() => setShowCorrectionModal(false)}
+                className="flex-1 bg-neutral-800 text-white py-2 rounded-lg uppercase text-lg font-bold hover:bg-neutral-700"
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="submit"
+                className="flex-1 bg-orange-600 text-white py-2 rounded-lg uppercase text-lg font-bold hover:bg-orange-700"
+              >
+                {t.confirm}
+              </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Stop Confirm Modal */}
       {showStopConfirmModal && (
         <div className="absolute inset-0 z-[2000] bg-black/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-neutral-900 border-2 border-red-900/50 p-6 rounded-2xl shadow-[0_0_50px_rgba(220,38,38,0.2)] font-mono">
-            <h3 className="text-red-500 text-3xl font-handjet font-bold mb-2 uppercase text-center tracking-widest">{t.stopConfirmTitle}</h3>
-            <p className="text-gray-400 text-base mb-6 text-center uppercase tracking-wide">{t.stopConfirmDesc}</p>
+            <h3 className="text-red-500 text-3xl font-handjet font-bold mb-2 uppercase text-center tracking-widest">
+              {t.stopConfirmTitle}
+            </h3>
+            <p className="text-gray-400 text-base mb-6 text-center uppercase tracking-wide">
+              {t.stopConfirmDesc}
+            </p>
             <div className="flex flex-col gap-2 font-handjet">
-              <button onClick={handleReturnClick} className="w-full bg-white text-black py-3 rounded-lg uppercase text-xl font-bold hover:bg-gray-200 transition-colors shadow-lg">{t.return}</button>
+              <button
+                onClick={handleReturnClick}
+                className="w-full bg-white text-black py-3 rounded-lg uppercase text-xl font-bold hover:bg-gray-200 transition-colors shadow-lg"
+              >
+                {t.return}
+              </button>
               <div className="flex gap-2">
-                  <button onClick={() => setShowStopConfirmModal(false)} className="flex-1 bg-neutral-800 text-white py-3 rounded-lg uppercase text-xl font-bold hover:bg-neutral-700 transition-colors">{t.no}</button>
-                  <button onClick={confirmStop} className="flex-1 bg-red-600 text-white py-3 rounded-lg uppercase text-xl font-bold hover:bg-red-700 transition-colors shadow-lg">{t.yes}</button>
+                  <button
+                    onClick={() => setShowStopConfirmModal(false)}
+                    className="flex-1 bg-neutral-800 text-white py-3 rounded-lg uppercase text-xl font-bold hover:bg-neutral-700 transition-colors"
+                  >
+                    {t.no}
+                  </button>
+                  <button
+                    onClick={confirmStop}
+                    className="flex-1 bg-red-600 text-white py-3 rounded-lg uppercase text-xl font-bold hover:bg-red-700 transition-colors shadow-lg"
+                  >
+                    {t.yes}
+                  </button>
               </div>
             </div>
           </div>

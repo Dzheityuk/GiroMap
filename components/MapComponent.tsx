@@ -14,9 +14,9 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Arrow always points UP (0 deg) because the MAP rotates underneath it.
-const createArrowIcon = () => L.divIcon({
-  html: `<div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+// Arrow always points UP relative to the screen by counter-rotating against the map rotation.
+const createArrowIcon = (rotation: number) => L.divIcon({
+  html: `<div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; transform: rotate(${rotation}deg);">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 2L2 22L12 18L22 22L12 2Z" fill="#FF4500" stroke="white" stroke-width="2"/>
           </svg>
@@ -71,6 +71,82 @@ const MapController: React.FC<{
   return null;
 };
 
+// --- Custom Drag Handler to fix Inverted Control when Rotated ---
+const MapDragFix: React.FC<{ manualRotation: number, isLocked: boolean }> = ({ manualRotation, isLocked }) => {
+  const map = useMap();
+  const isDragging = useRef(false);
+  const lastPos = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    // We must disable native dragging to prevent conflict and inversion
+    map.dragging.disable();
+
+    const container = map.getContainer();
+
+    const handleStart = (clientX: number, clientY: number) => {
+      if (isLocked) return;
+      isDragging.current = true;
+      lastPos.current = { x: clientX, y: clientY };
+    };
+
+    const handleMove = (clientX: number, clientY: number, e: Event) => {
+      if (!isDragging.current) return;
+      
+      const dx = clientX - lastPos.current.x;
+      const dy = clientY - lastPos.current.y;
+
+      // Convert screen delta to map space (counter-rotate)
+      // When map is rotated by Theta, screen vector V must be rotated by -Theta to align with map axes
+      const rad = -manualRotation * (Math.PI / 180);
+      const rdx = dx * Math.cos(rad) - dy * Math.sin(rad);
+      const rdy = dx * Math.sin(rad) + dy * Math.cos(rad);
+
+      // panBy moves the "camera", so to move map image with finger, we invert the delta
+      map.panBy([-rdx, -rdy], { animate: false });
+
+      lastPos.current = { x: clientX, y: clientY };
+      
+      // Prevent scrolling on touch devices
+      if (e.type === 'touchmove') {
+          e.preventDefault();
+      }
+    };
+
+    const onMouseDown = (e: MouseEvent) => handleStart(e.clientX, e.clientY);
+    const onTouchStart = (e: TouchEvent) => {
+       if (e.touches.length === 1) handleStart(e.touches[0].clientX, e.touches[0].clientY);
+    };
+
+    const onMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY, e);
+    const onTouchMove = (e: TouchEvent) => {
+       if (e.touches.length === 1) handleMove(e.touches[0].clientX, e.touches[0].clientY, e);
+    };
+
+    const onEnd = () => { isDragging.current = false; };
+
+    container.addEventListener('mousedown', onMouseDown);
+    container.addEventListener('touchstart', onTouchStart, { passive: false });
+    
+    // Attach move/end to window to catch drags outside container
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchend', onEnd);
+
+    return () => {
+      container.removeEventListener('mousedown', onMouseDown);
+      container.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchend', onEnd);
+      // We do NOT re-enable dragging here to avoid flash of inverted control on unmount
+    };
+  }, [map, manualRotation, isLocked]);
+
+  return null;
+};
+
 const MapEvents: React.FC<{ 
   onLongPress: (c: Coordinate) => void, 
   onMapClick: (c: Coordinate) => void,
@@ -108,11 +184,12 @@ const MapComponent: React.FC<MapProps> = ({
   
   const showReticle = mode === AppMode.PLANNING || pickingTarget === 'correction';
   
-  // -- Gesture Handling --
+  // -- Gesture Handling (Rotation Only) --
+  // Panning is handled by MapDragFix
   const touchStartAngle = useRef<number | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (isLocked) return; // Disable rotation if locked
+    if (isLocked) return;
     if (e.touches.length === 2) {
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
@@ -149,7 +226,7 @@ const MapComponent: React.FC<MapProps> = ({
         
         {/* Map Container */}
         <div 
-           className="w-full h-full transition-transform duration-300 ease-out will-change-transform flex-shrink-0"
+           className="w-full h-full will-change-transform flex-shrink-0"
            style={{ 
              width: '150vmax', 
              height: '150vmax', 
@@ -161,7 +238,7 @@ const MapComponent: React.FC<MapProps> = ({
             center={[center.lat, center.lng]} 
             zoom={17} 
             zoomControl={false} 
-            dragging={!isLocked} // Disable panning if locked
+            dragging={false} // Native dragging disabled to fix inversion. Handled by MapDragFix.
             className="invert-map"
             style={{ height: '100%', width: '100%', background: '#000' }}
           >
@@ -172,6 +249,7 @@ const MapComponent: React.FC<MapProps> = ({
             />
             
             <MapController center={center} mode={mode} userPosition={userPosition} pickingTarget={pickingTarget} />
+            <MapDragFix manualRotation={manualRotation} isLocked={isLocked} />
             <MapEvents onLongPress={onLongPress} onMapClick={onMapClick} onCenterChange={onCenterChange} />
 
             {plannedRoute.length > 0 && (
@@ -190,7 +268,7 @@ const MapComponent: React.FC<MapProps> = ({
 
             <Marker 
               position={[userPosition.lat, userPosition.lng]} 
-              icon={createArrowIcon()} // Fixed UP arrow
+              icon={createArrowIcon(-manualRotation)} 
               zIndexOffset={1000}
             />
 
