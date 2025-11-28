@@ -66,41 +66,79 @@ const App: React.FC = () => {
   }, [gpsEnabled, mode, fromAddress]);
 
 
-  // --- RAIL SHOOTER LOGIC (Core Request) ---
+  // --- STRICT MAGNETIC PATH LOGIC ---
   const moveAlongRoute = (currentPos: Coordinate, route: Coordinate[], dist: number): Coordinate => {
-    // 1. Find closest point index on route (simplified)
-    let minDst = Infinity;
-    let closestIdx = 0;
-    
-    for (let i = 0; i < route.length; i++) {
-        const d = getDistance(route[i], currentPos);
-        if (d < minDst) {
-            minDst = d;
-            closestIdx = i;
+    if (route.length < 2) return currentPos;
+
+    // 1. Find the closest segment on the polyline to the current position
+    let closestSegmentIndex = 0;
+    let minDistanceToSegment = Infinity;
+    let snappedPoint: Coordinate = currentPos;
+
+    for (let i = 0; i < route.length - 1; i++) {
+        const p1 = route[i];
+        const p2 = route[i + 1];
+        
+        // Project currentPos onto segment p1-p2
+        // Simplification: Treat lat/lng as Cartesian for projection ratio
+        const dx = p2.lng - p1.lng;
+        const dy = p2.lat - p1.lat;
+        const lengthSq = dx*dx + dy*dy;
+        
+        let t = 0;
+        if (lengthSq > 0) {
+            t = ((currentPos.lng - p1.lng) * dx + (currentPos.lat - p1.lat) * dy) / lengthSq;
+        }
+        t = Math.max(0, Math.min(1, t)); // Clamp to segment
+
+        const projLng = p1.lng + t * dx;
+        const projLat = p1.lat + t * dy;
+        const projPoint = { lat: projLat, lng: projLng };
+        
+        const d = getDistance(currentPos, projPoint);
+        if (d < minDistanceToSegment) {
+            minDistanceToSegment = d;
+            closestSegmentIndex = i;
+            snappedPoint = projPoint;
         }
     }
 
-    // 2. If we are at the end, stay there
-    if (closestIdx >= route.length - 1) return currentPos;
-
-    // 3. Move from closest point towards next point
-    const currentPt = route[closestIdx];
-    const nextPt = route[closestIdx + 1];
+    // 2. We now have the snapped point on the closest segment (index).
+    // Move 'dist' meters along the polyline starting from 'snappedPoint'.
     
-    // Calculate bearing between route points
-    const lat1 = (currentPt.lat * Math.PI) / 180;
-    const lon1 = (currentPt.lng * Math.PI) / 180;
-    const lat2 = (nextPt.lat * Math.PI) / 180;
-    const lon2 = (nextPt.lng * Math.PI) / 180;
+    let remainingDist = dist;
+    let currentSegmentIdx = closestSegmentIndex;
+    let currentPoint = snappedPoint;
+
+    while (remainingDist > 0 && currentSegmentIdx < route.length - 1) {
+        const nextVertex = route[currentSegmentIdx + 1];
+        const distToNext = getDistance(currentPoint, nextVertex);
+
+        if (remainingDist <= distToNext) {
+            // Destination is on this segment
+            const bearing = calculateBearing(currentPoint, nextVertex);
+            return calculateNewPosition(currentPoint, remainingDist, bearing);
+        } else {
+            // Overshoot this segment, move to vertex and continue
+            remainingDist -= distToNext;
+            currentPoint = nextVertex;
+            currentSegmentIdx++;
+        }
+    }
+
+    return currentPoint; // End of route reached
+  };
+
+  const calculateBearing = (start: Coordinate, end: Coordinate): number => {
+    const lat1 = (start.lat * Math.PI) / 180;
+    const lon1 = (start.lng * Math.PI) / 180;
+    const lat2 = (end.lat * Math.PI) / 180;
+    const lon2 = (end.lng * Math.PI) / 180;
     
     const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
     const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
     const bearingRad = Math.atan2(y, x);
-    const bearingDeg = (bearingRad * 180 / Math.PI + 360) % 360;
-
-    // 4. Calculate new position moving 'dist' along that bearing
-    // We treat 'currentPos' as if it's on the line, moving towards nextPt
-    return calculateNewPosition(currentPos, dist, bearingDeg);
+    return (bearingRad * 180 / Math.PI + 360) % 360;
   };
 
   const registerStep = useCallback(() => {
@@ -108,11 +146,10 @@ const App: React.FC = () => {
       let newPos: Coordinate;
 
       if (plannedRoute.length > 0) {
-        // MAGNET MODE: Move along the planned route
+        // MAGNET MODE: Snap strictly to polyline and move along it
         newPos = moveAlongRoute(prevPos, plannedRoute, STEP_LENGTH);
       } else {
         // FREE MODE: Move "UP" relative to the map's manual rotation
-        // Since we rotate the map by `manualRotation`, "UP" on screen corresponds to `-manualRotation` bearing.
         newPos = calculateNewPosition(prevPos, STEP_LENGTH, -manualRotation);
       }
       
@@ -124,7 +161,7 @@ const App: React.FC = () => {
   }, [plannedRoute, manualRotation]);
 
   const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
-    // Compass is now strictly visual (for the dashboard number only)
+    // Compass for visual arrow rotation
     let rawHeading = 0;
     const ev = event as any;
     if (ev.webkitCompassHeading) rawHeading = ev.webkitCompassHeading;
@@ -367,6 +404,7 @@ const App: React.FC = () => {
         manualRotation={manualRotation}
         onRotateDelta={handleRotateDelta}
         isLocked={isMapLocked}
+        heading={isMapLocked ? -manualRotation : sensorData.heading}
       />
 
       <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)] z-[500]" />

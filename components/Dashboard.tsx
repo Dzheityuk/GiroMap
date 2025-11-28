@@ -1,6 +1,6 @@
 
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { AppMode, SensorData, Language, PickingMode } from '../types';
 import { TRANSLATIONS } from '../constants';
 
@@ -67,6 +67,10 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const [showStopConfirmModal, setShowStopConfirmModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  
+  // Correction Mode Local State
+  const [showAddressInput, setShowAddressInput] = useState(false);
+
   const t = TRANSLATIONS[language];
 
   // --- Joystick Logic ---
@@ -140,7 +144,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   // --- Form Logic ---
   const handleAddressSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (correctionInput.trim()) onCorrectionSubmit(correctionInput);
+    if (correctionInput.trim()) {
+        onCorrectionSubmit(correctionInput);
+        setShowAddressInput(false); // Reset for next time
+    }
   };
   
   const handleStopClick = () => setShowStopConfirmModal(true);
@@ -150,8 +157,23 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Is Correction Panel Active?
   const isCorrectionMode = pickingTarget === 'correction';
 
+  // Reset address mode when exiting correction
+  useEffect(() => {
+      if (!isCorrectionMode) setShowAddressInput(false);
+  }, [isCorrectionMode]);
+
   return (
     <>
+      <style>{`
+        @keyframes marquee {
+          0% { transform: translateX(100%); }
+          100% { transform: translateX(-100%); }
+        }
+        .animate-marquee {
+          animation: marquee 20s linear infinite;
+        }
+      `}</style>
+
       {/* HELP BUTTON (Top Left) */}
       <div className="absolute top-4 left-4 z-[1000]">
          <button 
@@ -211,38 +233,61 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* CORRECTION MODE PANEL (Replaces Modal) */}
       {isCorrectionMode && (
          <div className="absolute bottom-0 left-0 right-0 z-[1200] bg-black/90 backdrop-blur-xl border-t-2 border-orange-500 rounded-t-3xl p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom-20 duration-300">
-             <div className="flex flex-col gap-3 max-w-md mx-auto">
-                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+             <div className="flex flex-col gap-3 max-w-lg mx-auto">
+                {/* Header Row */}
+                <div className="flex justify-between items-center border-b border-white/10 pb-2 mb-1">
                    <span className="text-orange-500 font-handjet font-bold text-xl uppercase tracking-widest">{t.correctionTitle}</span>
-                   <button onClick={onCancelCorrection} className="text-gray-500 hover:text-white px-2">✕</button>
+                   <button onClick={onCancelCorrection} className="text-gray-500 hover:text-white px-2 font-mono text-xl">✕</button>
                 </div>
                 
-                {/* 1. Pick Map Center Button */}
-                <button 
-                  onClick={onConfirmCorrection}
-                  className="w-full bg-orange-600 hover:bg-orange-700 text-white font-handjet font-bold text-2xl uppercase py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  {t.hereBtn}
-                </button>
+                {/* Mode Switcher logic */}
+                {!showAddressInput ? (
+                    <div className="flex flex-row items-stretch gap-4">
+                        {/* Left Side: Instruction Text */}
+                        <div className="flex-1 flex flex-col justify-center text-gray-400 font-mono text-sm leading-tight">
+                            <p>{t.correctionDesc}</p>
+                            <div className="mt-2 text-xs text-gray-500 uppercase tracking-wider">{t.pickCorrect}</div>
+                        </div>
 
-                {/* 2. Or Address Input */}
-                <form onSubmit={handleAddressSubmit} className="flex gap-2">
-                   <input
-                     autoFocus
-                     type="text"
-                     value={correctionInput}
-                     onChange={(e) => setCorrectionInput(e.target.value)}
-                     placeholder={t.placeholderAddr}
-                     className="flex-1 bg-neutral-800 border border-neutral-600 text-white text-base px-3 py-2 rounded-lg focus:border-orange-500 focus:outline-none uppercase font-mono"
-                   />
-                   <button type="submit" className="bg-neutral-700 hover:bg-neutral-600 text-white px-4 rounded-lg">
-                      ➜
-                   </button>
-                </form>
+                        {/* Right Side: Stacked Buttons */}
+                        <div className="flex flex-col gap-2 w-1/3 min-w-[120px]">
+                            <button 
+                              onClick={onConfirmCorrection}
+                              className="bg-orange-600 hover:bg-orange-700 text-white font-handjet font-bold text-2xl uppercase py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                            >
+                              {t.hereBtn}
+                            </button>
+                            <button 
+                              onClick={() => setShowAddressInput(true)}
+                              className="bg-neutral-800 hover:bg-neutral-700 text-gray-300 font-handjet font-bold text-sm uppercase py-2 rounded-lg border border-white/10 active:bg-neutral-600"
+                            >
+                              {t.byAddress}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-3">
+                         <form onSubmit={handleAddressSubmit} className="flex gap-2">
+                           <input
+                             autoFocus
+                             type="text"
+                             value={correctionInput}
+                             onChange={(e) => setCorrectionInput(e.target.value)}
+                             placeholder={t.placeholderAddr}
+                             className="flex-1 bg-neutral-800 border border-neutral-600 text-white text-base px-3 py-3 rounded-xl focus:border-orange-500 focus:outline-none uppercase font-mono"
+                           />
+                           <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white px-4 rounded-xl font-bold font-handjet text-xl">
+                              ➜
+                           </button>
+                        </form>
+                        <button 
+                           onClick={() => setShowAddressInput(false)}
+                           className="text-center text-gray-500 text-xs uppercase font-mono hover:text-white tracking-widest border-t border-white/5 pt-2"
+                        >
+                            {t.backToMap}
+                        </button>
+                    </div>
+                )}
              </div>
          </div>
       )}
@@ -253,12 +298,14 @@ const Dashboard: React.FC<DashboardProps> = ({
         
         <div className="pointer-events-auto bg-black/60 backdrop-blur-xl border-t border-white/10 px-3 pt-2 rounded-t-3xl pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(0,0,0,0.6)]">
             
-            {/* Status */}
-            <div className="flex justify-between items-center mb-2 text-[10px]">
-               <div className="font-mono text-cyan-400/80 pl-2 max-w-[60%] truncate tracking-wide">
-                  {aiContext ? aiContext.toUpperCase() : "SYSTEM READY"}
+            {/* Status with Marquee */}
+            <div className="flex justify-between items-center mb-2 text-[10px] h-4 overflow-hidden">
+               <div className="flex-1 relative h-full mr-2 overflow-hidden">
+                   <div className="absolute whitespace-nowrap animate-marquee text-cyan-400/80 font-mono tracking-wide">
+                      {aiContext ? aiContext.toUpperCase() : "SYSTEM READY // WAITING FOR INPUT"}
+                   </div>
                </div>
-               <div className="flex gap-2 font-handjet">
+               <div className="flex gap-2 font-handjet shrink-0 bg-black/20 backdrop-blur pl-2">
                  <button onClick={onToggleLanguage} className="px-1.5 py-0.5 border border-white/20 bg-white/5 text-white rounded hover:bg-white/10">{language}</button>
                  <button onClick={onToggleGps} className={`px-1.5 py-0.5 border ${gpsEnabled ? 'border-green-500/50 text-green-400' : 'border-red-500/50 text-red-400'} bg-white/5 rounded`}>{gpsEnabled ? 'GPS' : 'OFF'}</button>
                </div>

@@ -6,24 +6,24 @@ import { Language } from '../types';
 
 const FALLBACK_MESSAGES = {
   RU: [
-    "СКАНИРОВАНИЕ ЗАВЕРШЕНО // ДАННЫЕ ФРАГМЕНТИРОВАНЫ",
-    "ГОРОДСКАЯ ПЛОТНОСТЬ: ВЫСОКАЯ // БУДЬТЕ ОСТОРОЖНЫ",
-    "КООРДИНАТЫ СЕТКИ: A-7 // ПОМЕХИ СИГНАЛА",
-    "ЛОКАЦИЯ: НЕ ОТМЕЧЕНА // СЛЕДИТЕ ЗА ДАТЧИКАМИ",
-    "СРЕДА: ВРАЖДЕБНАЯ // СОХРАНЯЙТЕ КУРС",
-    "ЦЕЛЕВАЯ ЗОНА ОПОЗНАНА // НИЗКАЯ ВИДИМОСТЬ",
-    "ГРАЖДАНСКИЙ СЕКТОР // РАДИОМОЛЧАНИЕ",
-    "ПОКРЫТИЕ: ТВЕРДОЕ // СКОРОСТЬ: НОРМАЛЬНАЯ"
+    "Сканирование местности... Данные ограничены.",
+    "Район с плотной застройкой. Обратите внимание на архитектуру.",
+    "Сигнал GPS нестабилен, ориентируйтесь по заметным объектам.",
+    "Загрузка исторической справки... Ошибка соединения.",
+    "Движение по маршруту. Следите за окружением.",
+    "Интересный факт: где-то здесь спрятан старый дворик.",
+    "Зона повышенного пешеходного трафика.",
+    "Покрытие стабильное. Продолжайте движение."
   ],
   EN: [
-    "SECTOR SCAN COMPLETE // DATA FRAGMENTED",
-    "URBAN DENSITY: HIGH // CAUTION ADVISED",
-    "GRID REFERENCE: A-7 // SIGNAL INTERFERENCE",
-    "LOCALE: UNMAPPED // MONITOR SENSORS",
-    "ENVIRONMENT: HOSTILE // MAINTAIN BEARING",
-    "TARGET ZONE IDENTIFIED // LOW VISIBILITY",
-    "CIVILIAN SECTOR // RADIO SILENCE",
-    "TERRAIN: PAVED // MOVEMENT SPEED: NORMAL"
+    "Scanning area... Data limited.",
+    "Dense urban area. Note the architecture.",
+    "GPS signal unstable, use landmarks.",
+    "Loading historical data... Connection error.",
+    "On route. Watch your surroundings.",
+    "Fun fact: there is an old courtyard hidden nearby.",
+    "High pedestrian traffic zone.",
+    "Surface stable. Continue moving."
   ]
 };
 
@@ -31,8 +31,8 @@ export const getDestinationInfo = async (address: string, lang: Language): Promi
   const OPENROUTER_API_KEY = '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'; 
   
   const systemPrompt = lang === 'RU'
-    ? "Ты тактический навигационный помощник. Опиши указанную локацию очень кратко (1 предложение) в стиле Киберпанк/Военный HUD на РУССКОМ языке. Используй термины вроде 'Сектор', 'Зона', 'Объект'. Максимум 12 слов."
-    : "You are a tactical navigation assistant. Provide a very short, 1-sentence cryptic description of locations in English. Style: Cyberpunk/Military HUD. Keep it under 15 words.";
+    ? "Ты знаток города и урбанист. Твоя задача — дать ОДИН краткий, но очень интересный и неочевидный факт об указанном месте или адресе (история, архитектура, легенда). Не пиши банальщины вроде 'это жилой дом'. Пиши живо и увлекательно. Максимум 2 предложения."
+    : "You are an urban explorer and city guide. Provide ONE short, fascinating, and non-obvious fact about the location (history, architecture, local legend). Avoid cliches like 'this is a building'. Make it engaging. Max 2 sentences.";
 
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -52,7 +52,7 @@ export const getDestinationInfo = async (address: string, lang: Language): Promi
           },
           {
             role: "user",
-            content: `Describe location: ${address}`
+            content: `Location: ${address}`
           }
         ],
         stream: false
@@ -61,7 +61,7 @@ export const getDestinationInfo = async (address: string, lang: Language): Promi
 
     // Handle 401 (Unauthorized) and 402 (Payment Required) gracefully
     if (response.status === 401 || response.status === 402) {
-        console.warn(`AI Key Error (${response.status}). Switching to Tactical Simulation Mode.`);
+        console.warn(`AI Key Error (${response.status}). Switching to Offline Mode.`);
         // Simulate network delay for realism
         await new Promise(r => setTimeout(r, 300));
         const msgs = FALLBACK_MESSAGES[lang];
@@ -77,7 +77,6 @@ export const getDestinationInfo = async (address: string, lang: Language): Promi
 
   } catch (error) {
     console.warn("AI Connection Failed, using fallback.", error);
-    // Return a random cool message instead of "Error" to maintain immersion
     const msgs = FALLBACK_MESSAGES[lang];
     return msgs[Math.floor(Math.random() * msgs.length)];
   }

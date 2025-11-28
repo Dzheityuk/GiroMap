@@ -1,4 +1,5 @@
-import { Coordinate } from '../types';
+
+import { Coordinate, SearchResult } from '../types';
 import { EARTH_RADIUS } from '../constants';
 
 /**
@@ -74,4 +75,24 @@ export const reverseGeocode = async (coord: Coordinate): Promise<string> => {
     console.error("Reverse geocoding failed", e);
   }
   return `${coord.lat.toFixed(5)}, ${coord.lng.toFixed(5)}`;
+};
+
+/**
+ * Get address suggestions for autocomplete
+ */
+export const getAddressSuggestions = async (query: string, lang: string): Promise<SearchResult[]> => {
+  if (!query || query.length < 3) return [];
+  try {
+    const acceptLang = lang === 'RU' ? 'ru' : 'en';
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&accept-language=${acceptLang}`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    // Map to ensure it fits SearchResult if structure varies, though Nominatim usually returns display_name, lat, lon
+    return data;
+  } catch (e) {
+    console.error("Autocomplete failed", e);
+    return [];
+  }
 };

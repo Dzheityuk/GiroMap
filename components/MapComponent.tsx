@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Coordinate, AppMode, PickingMode } from '../types';
@@ -14,7 +14,8 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Arrow always points UP relative to the screen by counter-rotating against the map rotation.
+// Arrow always points UP (0 deg) in SVG. We rotate it to match Heading.
+// 0 deg heading = North = Up.
 const createArrowIcon = (rotation: number) => L.divIcon({
   html: `<div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; transform: rotate(${rotation}deg);">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -39,6 +40,7 @@ interface MapProps {
   manualRotation: number;
   onRotateDelta: (delta: number) => void;
   isLocked: boolean;
+  heading: number;
 }
 
 const MapController: React.FC<{ 
@@ -57,6 +59,13 @@ const MapController: React.FC<{
     setTimeout(() => { map.invalidateSize(); }, 100);
     return () => resizeObserver.disconnect();
   }, [map]);
+
+  // Auto-Zoom on Start Tracking
+  useEffect(() => {
+    if (mode === AppMode.TRACKING) {
+      map.setZoom(18, { animate: true });
+    }
+  }, [mode, map]);
 
   useEffect(() => {
     if (pickingTarget) return;
@@ -78,7 +87,6 @@ const MapDragFix: React.FC<{ manualRotation: number, isLocked: boolean }> = ({ m
   const lastPos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    // We must disable native dragging to prevent conflict and inversion
     map.dragging.disable();
 
     const container = map.getContainer();
@@ -95,18 +103,14 @@ const MapDragFix: React.FC<{ manualRotation: number, isLocked: boolean }> = ({ m
       const dx = clientX - lastPos.current.x;
       const dy = clientY - lastPos.current.y;
 
-      // Convert screen delta to map space (counter-rotate)
-      // When map is rotated by Theta, screen vector V must be rotated by -Theta to align with map axes
       const rad = -manualRotation * (Math.PI / 180);
       const rdx = dx * Math.cos(rad) - dy * Math.sin(rad);
       const rdy = dx * Math.sin(rad) + dy * Math.cos(rad);
 
-      // panBy moves the "camera", so to move map image with finger, we invert the delta
       map.panBy([-rdx, -rdy], { animate: false });
 
       lastPos.current = { x: clientX, y: clientY };
       
-      // Prevent scrolling on touch devices
       if (e.type === 'touchmove') {
           e.preventDefault();
       }
@@ -126,8 +130,6 @@ const MapDragFix: React.FC<{ manualRotation: number, isLocked: boolean }> = ({ m
 
     container.addEventListener('mousedown', onMouseDown);
     container.addEventListener('touchstart', onTouchStart, { passive: false });
-    
-    // Attach move/end to window to catch drags outside container
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('touchmove', onTouchMove, { passive: false });
     window.addEventListener('mouseup', onEnd);
@@ -140,7 +142,6 @@ const MapDragFix: React.FC<{ manualRotation: number, isLocked: boolean }> = ({ m
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('mouseup', onEnd);
       window.removeEventListener('touchend', onEnd);
-      // We do NOT re-enable dragging here to avoid flash of inverted control on unmount
     };
   }, [map, manualRotation, isLocked]);
 
@@ -179,13 +180,12 @@ const MapComponent: React.FC<MapProps> = ({
   pickingTarget,
   manualRotation,
   onRotateDelta,
-  isLocked
+  isLocked,
+  heading
 }) => {
   
   const showReticle = mode === AppMode.PLANNING || pickingTarget === 'correction';
   
-  // -- Gesture Handling (Rotation Only) --
-  // Panning is handled by MapDragFix
   const touchStartAngle = useRef<number | null>(null);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -223,14 +223,12 @@ const MapComponent: React.FC<MapProps> = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-        
-        {/* Map Container */}
         <div 
            className="w-full h-full will-change-transform flex-shrink-0"
            style={{ 
              width: '150vmax', 
              height: '150vmax', 
-             transform: `rotate(${manualRotation}deg)`, // Only manual rotation
+             transform: `rotate(${manualRotation}deg)`,
              transformOrigin: 'center center' 
            }}
         >
@@ -238,7 +236,7 @@ const MapComponent: React.FC<MapProps> = ({
             center={[center.lat, center.lng]} 
             zoom={17} 
             zoomControl={false} 
-            dragging={false} // Native dragging disabled to fix inversion. Handled by MapDragFix.
+            dragging={false}
             className="invert-map"
             style={{ height: '100%', width: '100%', background: '#000' }}
           >
@@ -252,7 +250,7 @@ const MapComponent: React.FC<MapProps> = ({
             <MapDragFix manualRotation={manualRotation} isLocked={isLocked} />
             <MapEvents onLongPress={onLongPress} onMapClick={onMapClick} onCenterChange={onCenterChange} />
 
-            {/* PLANNED ROUTE - Thin Orange Dashed */}
+            {/* PLANNED ROUTE */}
             {plannedRoute.length > 0 && (
               <Polyline 
                 positions={plannedRoute.map(c => [c.lat, c.lng])} 
@@ -260,7 +258,7 @@ const MapComponent: React.FC<MapProps> = ({
               />
             )}
 
-            {/* WALKED/RETURN PATH - Gray Solid */}
+            {/* WALKED PATH */}
             {walkedPath.length > 0 && (
               <Polyline 
                 positions={walkedPath.map(c => [c.lat, c.lng])} 
@@ -270,7 +268,7 @@ const MapComponent: React.FC<MapProps> = ({
 
             <Marker 
               position={[userPosition.lat, userPosition.lng]} 
-              icon={createArrowIcon(-manualRotation)} 
+              icon={createArrowIcon(heading)} 
               zIndexOffset={1000}
             />
 
