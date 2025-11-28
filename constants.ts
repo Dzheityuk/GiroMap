@@ -1,4 +1,5 @@
 
+
 // Earth radius in meters
 export const EARTH_RADIUS = 6378137;
 
@@ -30,8 +31,8 @@ export const TRANSLATIONS = {
     finished: 'Маршрут завершен',
     newRoute: 'НОВЫЙ МАРШРУТ',
     correctionTitle: 'Коррекция Позиции',
-    correctionDesc: 'Введите адрес, где вы находитесь (GPS игнорируется).',
-    placeholderAddr: 'Например: Ленина 5',
+    correctionDesc: 'Наведите центр карты или введите адрес.',
+    placeholderAddr: 'Или введите адрес...',
     cancel: 'Отмена',
     confirm: 'Подтвердить',
     searchFrom: 'ОТКУДА (Текущая позиция)',
@@ -55,7 +56,7 @@ export const TRANSLATIONS = {
     byAuthor: 'BY DZHEITYUK',
     imHere: 'Я ТУТ',
     toHere: 'СЮДА',
-    hereBtn: 'ТУТ',
+    hereBtn: 'Я ТУТ (ПО ЦЕНТРУ)',
     calib: 'ЗАФИКСИРОВАТЬ КУРС',
     unlock: 'РАЗБЛОКИРОВАТЬ',
     resetPath: 'СБРОС ПУТИ',
@@ -66,7 +67,7 @@ export const TRANSLATIONS = {
       '2. КУРС: Вращайте карту (джойстиком или двумя пальцами), чтобы выровнять маршрут "перед собой".',
       '3. ФИКСАЦИЯ: Нажмите "ЗАФИКСИРОВАТЬ КУРС". Карта застынет.',
       '4. ДВИЖЕНИЕ: Идите вперед. Датчики будут двигать вас строго по линии маршрута.',
-      '5. КОРРЕКЦИЯ: Если позиция сбилась, нажмите "Я ЗДЕСЬ" и укажите точку на карте.'
+      '5. КОРРЕКЦИЯ: Если сбились, жмите "Я ЗДЕСЬ". Наведите перекрестие на ваше местоположение и нажмите "Я ТУТ", либо введите адрес.'
     ]
   },
   EN: {
@@ -83,8 +84,8 @@ export const TRANSLATIONS = {
     finished: 'Route Finished',
     newRoute: 'NEW ROUTE',
     correctionTitle: 'Position Correction',
-    correctionDesc: 'Enter your current address (GPS ignored).',
-    placeholderAddr: 'e.g. Main St 5',
+    correctionDesc: 'Aim map center or enter address.',
+    placeholderAddr: 'Or enter address...',
     cancel: 'Cancel',
     confirm: 'Confirm',
     searchFrom: 'FROM (Current Loc)',
@@ -108,7 +109,7 @@ export const TRANSLATIONS = {
     byAuthor: 'BY DZHEITYUK',
     imHere: 'I\'M HERE',
     toHere: 'TO HERE',
-    hereBtn: 'HERE',
+    hereBtn: 'I\'M HERE (CENTER)',
     calib: 'LOCK COURSE',
     unlock: 'UNLOCK MAP',
     resetPath: 'RESET PATH',
@@ -119,7 +120,7 @@ export const TRANSLATIONS = {
       '2. HEADING: Rotate map (joystick or two fingers) to align route "forward".',
       '3. LOCK: Tap "LOCK COURSE". Map will freeze.',
       '4. WALK: Move forward. Sensors will move you strictly along the blue line.',
-      '5. CORRECT: If position drifts, tap "I AM HERE" and pick point on map.'
+      '5. CORRECT: Tap "I AM HERE". Aim the crosshair at your real location and tap "I\'M HERE", or type an address below.'
     ]
   }
 };

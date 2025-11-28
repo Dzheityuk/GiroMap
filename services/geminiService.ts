@@ -1,21 +1,39 @@
 
+import { Language } from '../types';
+
 // Replaced Google GenAI with OpenRouter API (Access to DeepSeek/Gemini/etc)
 // Since Google API is often blocked in Russia, OpenRouter is a better alternative.
 
-const FALLBACK_MESSAGES = [
-  "SECTOR SCAN COMPLETE // DATA FRAGMENTED",
-  "URBAN DENSITY: HIGH // CAUTION ADVISED",
-  "GRID REFERENCE: A-7 // SIGNAL INTERFERENCE",
-  "LOCALE: UNMAPPED // MONITOR SENSORS",
-  "ENVIRONMENT: HOSTILE // MAINTAIN BEARING",
-  "TARGET ZONE IDENTIFIED // LOW VISIBILITY",
-  "CIVILIAN SECTOR // RADIO SILENCE",
-  "TERRAIN: PAVED // MOVEMENT SPEED: NORMAL"
-];
+const FALLBACK_MESSAGES = {
+  RU: [
+    "СКАНИРОВАНИЕ ЗАВЕРШЕНО // ДАННЫЕ ФРАГМЕНТИРОВАНЫ",
+    "ГОРОДСКАЯ ПЛОТНОСТЬ: ВЫСОКАЯ // БУДЬТЕ ОСТОРОЖНЫ",
+    "КООРДИНАТЫ СЕТКИ: A-7 // ПОМЕХИ СИГНАЛА",
+    "ЛОКАЦИЯ: НЕ ОТМЕЧЕНА // СЛЕДИТЕ ЗА ДАТЧИКАМИ",
+    "СРЕДА: ВРАЖДЕБНАЯ // СОХРАНЯЙТЕ КУРС",
+    "ЦЕЛЕВАЯ ЗОНА ОПОЗНАНА // НИЗКАЯ ВИДИМОСТЬ",
+    "ГРАЖДАНСКИЙ СЕКТОР // РАДИОМОЛЧАНИЕ",
+    "ПОКРЫТИЕ: ТВЕРДОЕ // СКОРОСТЬ: НОРМАЛЬНАЯ"
+  ],
+  EN: [
+    "SECTOR SCAN COMPLETE // DATA FRAGMENTED",
+    "URBAN DENSITY: HIGH // CAUTION ADVISED",
+    "GRID REFERENCE: A-7 // SIGNAL INTERFERENCE",
+    "LOCALE: UNMAPPED // MONITOR SENSORS",
+    "ENVIRONMENT: HOSTILE // MAINTAIN BEARING",
+    "TARGET ZONE IDENTIFIED // LOW VISIBILITY",
+    "CIVILIAN SECTOR // RADIO SILENCE",
+    "TERRAIN: PAVED // MOVEMENT SPEED: NORMAL"
+  ]
+};
 
-export const getDestinationInfo = async (address: string): Promise<string> => {
+export const getDestinationInfo = async (address: string, lang: Language): Promise<string> => {
   const OPENROUTER_API_KEY = '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'; 
   
+  const systemPrompt = lang === 'RU'
+    ? "Ты тактический навигационный помощник. Опиши указанную локацию очень кратко (1 предложение) в стиле Киберпанк/Военный HUD на РУССКОМ языке. Используй термины вроде 'Сектор', 'Зона', 'Объект'. Максимум 12 слов."
+    : "You are a tactical navigation assistant. Provide a very short, 1-sentence cryptic description of locations in English. Style: Cyberpunk/Military HUD. Keep it under 15 words.";
+
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -30,7 +48,7 @@ export const getDestinationInfo = async (address: string): Promise<string> => {
         messages: [
           {
             role: "system",
-            content: "You are a tactical navigation assistant. Provide a very short, 1-sentence cryptic description of locations in Russian (Русский). Style: Cyberpunk/Military HUD. Keep it under 15 words."
+            content: systemPrompt
           },
           {
             role: "user",
@@ -46,7 +64,8 @@ export const getDestinationInfo = async (address: string): Promise<string> => {
         console.warn(`AI Key Error (${response.status}). Switching to Tactical Simulation Mode.`);
         // Simulate network delay for realism
         await new Promise(r => setTimeout(r, 300));
-        return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
+        const msgs = FALLBACK_MESSAGES[lang];
+        return msgs[Math.floor(Math.random() * msgs.length)];
     }
 
     if (!response.ok) {
@@ -59,6 +78,7 @@ export const getDestinationInfo = async (address: string): Promise<string> => {
   } catch (error) {
     console.warn("AI Connection Failed, using fallback.", error);
     // Return a random cool message instead of "Error" to maintain immersion
-    return FALLBACK_MESSAGES[Math.floor(Math.random() * FALLBACK_MESSAGES.length)];
+    const msgs = FALLBACK_MESSAGES[lang];
+    return msgs[Math.floor(Math.random() * msgs.length)];
   }
 };

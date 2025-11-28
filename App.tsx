@@ -33,7 +33,6 @@ const App: React.FC = () => {
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [pickingTarget, setPickingTarget] = useState<PickingMode>(null);
 
-  const [showCorrectionModal, setShowCorrectionModal] = useState(false);
   const [correctionInput, setCorrectionInput] = useState('');
 
   const lastStepTime = useRef<number>(0);
@@ -206,7 +205,7 @@ const App: React.FC = () => {
       
       setMapCenter(startCoord);
       await updateRoute(startCoord, endResult.coord);
-      getDestinationInfo(endResult.displayName).then(setAiContext);
+      getDestinationInfo(endResult.displayName, language).then(setAiContext);
     } catch (e) {} finally { setIsSearching(false); }
   };
 
@@ -236,7 +235,7 @@ const App: React.FC = () => {
           const endResult = await geocodeAddress(toAddress);
           if (endResult) await updateRoute(newPos, endResult.coord);
       }
-      setShowCorrectionModal(false);
+      setPickingTarget(null); // Exit correction mode
       setCorrectionInput('');
     } else { alert(TRANSLATIONS[language].correctionError); }
     setIsSearching(false);
@@ -247,11 +246,19 @@ const App: React.FC = () => {
       const addr = await reverseGeocode(coord);
       if (pickingTarget === 'from') { setFromAddress(addr); setUserPosition(coord); setMapCenter(coord); setPickingTarget(null); }
       else if (pickingTarget === 'to') { setToAddress(addr); setPickingTarget(null); }
-      else if (pickingTarget === 'correction') { setCorrectionInput(addr); setShowCorrectionModal(true); setPickingTarget(null); }
+      // NOTE: For 'correction', we don't just pick immediately on click anymore, 
+      // we use the crosshair + confirm button flow, so map click does nothing or just centers.
     }
   };
 
-  const handlePickCorrectionOnMap = () => { setShowCorrectionModal(false); setPickingTarget('correction'); };
+  // Triggers the correction mode UI (Crosshair + Bottom Panel)
+  const handleStartCorrection = () => {
+      setPickingTarget('correction');
+  };
+
+  const handleCancelCorrection = () => {
+      setPickingTarget(null);
+  };
   
   const handleConfirmCorrectionMapPick = async () => {
     const newPos = mapCenter;
@@ -279,7 +286,7 @@ const App: React.FC = () => {
     if (toAddress) {
         setIsSearching(true);
         const endResult = await geocodeAddress(toAddress);
-        if (endResult) { await updateRoute(mapCenter, endResult.coord); getDestinationInfo(endResult.displayName).then(setAiContext); }
+        if (endResult) { await updateRoute(mapCenter, endResult.coord); getDestinationInfo(endResult.displayName, language).then(setAiContext); }
         setIsSearching(false);
     }
   };
@@ -290,7 +297,7 @@ const App: React.FC = () => {
     if (fromAddress) {
         setIsSearching(true);
         const startResult = await geocodeAddress(fromAddress);
-        if (startResult) { await updateRoute(startResult.coord, mapCenter); getDestinationInfo(addr).then(setAiContext); }
+        if (startResult) { await updateRoute(startResult.coord, mapCenter); getDestinationInfo(addr, language).then(setAiContext); }
         setIsSearching(false);
     }
   };
@@ -321,7 +328,6 @@ const App: React.FC = () => {
   const handleToggleGps = () => setGpsEnabled(prev => !prev);
   const handleToggleLanguage = () => setLanguage(prev => prev === 'RU' ? 'EN' : 'RU');
   
-  // Renamed to handleLockToggle - this is the "Calibration" button action now
   const handleLockToggle = () => setIsMapLocked(prev => !prev);
 
   const handleLongPress = (coord: Coordinate) => {
@@ -365,19 +371,6 @@ const App: React.FC = () => {
 
       <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)] z-[500]" />
       
-      {pickingTarget === 'correction' && (
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-[1500] animate-in slide-in-from-right duration-300">
-           <button 
-             onClick={handleConfirmCorrectionMapPick}
-             className="w-16 h-16 bg-orange-600 rounded-full border-4 border-black/50 shadow-[0_0_20px_rgba(255,69,0,0.8)] flex items-center justify-center hover:scale-110 transition-transform active:scale-95"
-           >
-             <span className="font-handjet font-bold text-white text-xl uppercase tracking-widest leading-none">
-               {TRANSLATIONS[language].hereBtn}
-             </span>
-           </button>
-        </div>
-      )}
-
       {mode === AppMode.PLANNING && (
         <SearchBar 
           fromValue={fromAddress}
@@ -392,8 +385,8 @@ const App: React.FC = () => {
         />
       )}
 
-      {pickingTarget !== 'correction' && (
-        <Dashboard 
+      {/* Dashboard handles normal mode AND correction mode UI now */}
+      <Dashboard 
           mode={mode}
           sensorData={sensorData}
           targetAddress={toAddress}
@@ -410,21 +403,22 @@ const App: React.FC = () => {
           onToggleGps={handleToggleGps}
           language={language}
           onToggleLanguage={handleToggleLanguage}
-          showCorrectionModal={showCorrectionModal}
-          setShowCorrectionModal={setShowCorrectionModal}
           correctionInput={correctionInput}
           setCorrectionInput={setCorrectionInput}
-          onPickCorrectionOnMap={handlePickCorrectionOnMap}
+          onPickCorrectionOnMap={handleStartCorrection}
+          onConfirmCorrection={handleConfirmCorrectionMapPick}
+          onCancelCorrection={handleCancelCorrection}
           onCalibrate={handleLockToggle}
           onImHere={handleImHere}
           onToHere={handleToHere}
-          isMapLocked={isMapLocked} // New prop
+          isMapLocked={isMapLocked} 
           onClearPath={handleClearPath}
-          onRotateDelta={handleRotateDelta} // Pass the handler!
-        />
-      )}
-      
-      {pickingTarget === 'correction' && (
+          onRotateDelta={handleRotateDelta} 
+          pickingTarget={pickingTarget}
+      />
+
+      {/* Legacy "Cancel" button for search picking only (From/To), not correction */}
+      {(pickingTarget === 'from' || pickingTarget === 'to') && (
         <div className="absolute bottom-10 left-0 right-0 z-[1000] flex justify-center pb-[env(safe-area-inset-bottom)]">
            <button 
              onClick={() => setPickingTarget(null)}

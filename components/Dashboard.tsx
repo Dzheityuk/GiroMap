@@ -1,6 +1,7 @@
 
+
 import React, { useState, useRef } from 'react';
-import { AppMode, SensorData, Language } from '../types';
+import { AppMode, SensorData, Language, PickingMode } from '../types';
 import { TRANSLATIONS } from '../constants';
 
 interface DashboardProps {
@@ -20,17 +21,18 @@ interface DashboardProps {
   onToggleGps: () => void;
   language: Language;
   onToggleLanguage: () => void;
-  showCorrectionModal: boolean;
-  setShowCorrectionModal: (show: boolean) => void;
   correctionInput: string;
   setCorrectionInput: (val: string) => void;
-  onPickCorrectionOnMap: () => void;
+  onPickCorrectionOnMap: () => void; // Used to trigger mode
+  onConfirmCorrection: () => void; // Used to confirm center
+  onCancelCorrection: () => void;
   onCalibrate: () => void;
   onImHere: () => void;
   onToHere: () => void;
   isMapLocked: boolean;
   onClearPath: () => void;
   onRotateDelta: (delta: number) => void;
+  pickingTarget: PickingMode;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -50,17 +52,18 @@ const Dashboard: React.FC<DashboardProps> = ({
   onToggleGps,
   language,
   onToggleLanguage,
-  showCorrectionModal,
-  setShowCorrectionModal,
   correctionInput,
   setCorrectionInput,
   onPickCorrectionOnMap,
+  onConfirmCorrection,
+  onCancelCorrection,
   onCalibrate,
   onImHere,
   onToHere,
   isMapLocked,
   onClearPath,
-  onRotateDelta
+  onRotateDelta,
+  pickingTarget
 }) => {
   const [showStopConfirmModal, setShowStopConfirmModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -135,13 +138,17 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   // --- Form Logic ---
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleAddressSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (correctionInput.trim()) onCorrectionSubmit(correctionInput);
   };
+  
   const handleStopClick = () => setShowStopConfirmModal(true);
   const confirmStop = () => { setShowStopConfirmModal(false); onStop(); };
   const handleReturnClick = () => { setShowStopConfirmModal(false); onReturn(); };
+
+  // Is Correction Panel Active?
+  const isCorrectionMode = pickingTarget === 'correction';
 
   return (
     <>
@@ -169,10 +176,10 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* 
           VIRTUAL JOYSTICK (Bottom Right) 
-          Positioned on the right side for better ergonomics.
+          MOVED UP: bottom-40 -> bottom-64 to clear the panels
       */}
       <div 
-        className={`absolute right-8 bottom-40 z-[1100] touch-none ${isMapLocked ? 'opacity-30 grayscale pointer-events-none' : 'opacity-90'}`}
+        className={`absolute right-8 bottom-64 z-[1100] touch-none ${isMapLocked ? 'opacity-30 grayscale pointer-events-none' : 'opacity-90'}`}
         onTouchStart={handleJoystickStart}
         onTouchMove={handleJoystickMove}
         onTouchEnd={handleJoystickEnd}
@@ -201,7 +208,47 @@ const Dashboard: React.FC<DashboardProps> = ({
          </div>
       </div>
 
-      {/* BOTTOM COMPACT BAR */}
+      {/* CORRECTION MODE PANEL (Replaces Modal) */}
+      {isCorrectionMode && (
+         <div className="absolute bottom-0 left-0 right-0 z-[1200] bg-black/90 backdrop-blur-xl border-t-2 border-orange-500 rounded-t-3xl p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom-20 duration-300">
+             <div className="flex flex-col gap-3 max-w-md mx-auto">
+                <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                   <span className="text-orange-500 font-handjet font-bold text-xl uppercase tracking-widest">{t.correctionTitle}</span>
+                   <button onClick={onCancelCorrection} className="text-gray-500 hover:text-white px-2">✕</button>
+                </div>
+                
+                {/* 1. Pick Map Center Button */}
+                <button 
+                  onClick={onConfirmCorrection}
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white font-handjet font-bold text-2xl uppercase py-3 rounded-xl shadow-lg flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {t.hereBtn}
+                </button>
+
+                {/* 2. Or Address Input */}
+                <form onSubmit={handleAddressSubmit} className="flex gap-2">
+                   <input
+                     autoFocus
+                     type="text"
+                     value={correctionInput}
+                     onChange={(e) => setCorrectionInput(e.target.value)}
+                     placeholder={t.placeholderAddr}
+                     className="flex-1 bg-neutral-800 border border-neutral-600 text-white text-base px-3 py-2 rounded-lg focus:border-orange-500 focus:outline-none uppercase font-mono"
+                   />
+                   <button type="submit" className="bg-neutral-700 hover:bg-neutral-600 text-white px-4 rounded-lg">
+                      ➜
+                   </button>
+                </form>
+             </div>
+         </div>
+      )}
+
+      {/* STANDARD BOTTOM BAR (Hidden during Correction Mode) */}
+      {!isCorrectionMode && (
       <div className="absolute bottom-0 left-0 right-0 z-[1000] flex flex-col pointer-events-none">
         
         <div className="pointer-events-auto bg-black/60 backdrop-blur-xl border-t border-white/10 px-3 pt-2 rounded-t-3xl pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-10px_30px_rgba(0,0,0,0.6)]">
@@ -244,7 +291,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                       {mode === AppMode.TRACKING && (
                         <div className="flex gap-2 h-full">
-                           <button onClick={() => setShowCorrectionModal(true)} className="flex-[3] bg-neutral-800 border border-orange-500 text-orange-500 font-bold rounded-2xl uppercase font-handjet text-xl tracking-wide hover:bg-neutral-700">
+                           <button onClick={onPickCorrectionOnMap} className="flex-[3] bg-neutral-800 border border-orange-500 text-orange-500 font-bold rounded-2xl uppercase font-handjet text-xl tracking-wide hover:bg-neutral-700">
                              {t.correct}
                            </button>
                            <button onClick={handleStopClick} className="flex-[2] bg-red-600 text-white font-bold rounded-2xl uppercase font-handjet text-xl tracking-wide hover:bg-red-700 shadow-[0_0_10px_rgba(220,38,38,0.5)]">
@@ -294,6 +341,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         </div>
       </div>
+      )}
 
       {/* HELP MODAL */}
       {showHelpModal && (
@@ -314,50 +362,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                 ))}
               </ul>
            </div>
-        </div>
-      )}
-
-      {/* Other Modals (Correction & Stop) */}
-      {showCorrectionModal && (
-        <div className="absolute inset-0 z-[2000] bg-black/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-200">
-          <form onSubmit={handleFormSubmit} className="w-full max-w-sm bg-neutral-900 border border-neutral-700 p-5 rounded-2xl shadow-2xl font-mono">
-            <h3 className="text-orange-500 text-2xl font-handjet font-bold mb-3 uppercase text-center border-b border-neutral-800 pb-2 tracking-widest">
-              {t.correctionTitle}
-            </h3>
-            
-            <input
-              autoFocus
-              type="text"
-              value={correctionInput}
-              onChange={(e) => setCorrectionInput(e.target.value)}
-              placeholder={t.placeholderAddr}
-              className="w-full bg-black border border-neutral-600 text-white text-base p-2 rounded-lg mb-3 focus:border-white focus:outline-none uppercase"
-            />
-            
-            <button
-               type="button"
-               onClick={onPickCorrectionOnMap}
-               className="w-full mb-3 bg-neutral-800 border border-neutral-600 text-gray-300 py-2 rounded-lg uppercase text-lg font-handjet font-bold hover:bg-neutral-700 flex items-center justify-center gap-2"
-            >
-               {t.pickOnMapBtn}
-            </button>
-
-            <div className="flex gap-2 font-handjet">
-              <button
-                type="button"
-                onClick={() => setShowCorrectionModal(false)}
-                className="flex-1 bg-neutral-800 text-white py-2 rounded-lg uppercase text-lg font-bold hover:bg-neutral-700"
-              >
-                {t.cancel}
-              </button>
-              <button
-                type="submit"
-                className="flex-1 bg-orange-600 text-white py-2 rounded-lg uppercase text-lg font-bold hover:bg-orange-700"
-              >
-                {t.confirm}
-              </button>
-            </div>
-          </form>
         </div>
       )}
 

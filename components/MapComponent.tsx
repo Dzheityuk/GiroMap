@@ -252,17 +252,19 @@ const MapComponent: React.FC<MapProps> = ({
             <MapDragFix manualRotation={manualRotation} isLocked={isLocked} />
             <MapEvents onLongPress={onLongPress} onMapClick={onMapClick} onCenterChange={onCenterChange} />
 
+            {/* PLANNED ROUTE - Thin Orange Dashed */}
             {plannedRoute.length > 0 && (
               <Polyline 
                 positions={plannedRoute.map(c => [c.lat, c.lng])} 
-                pathOptions={{ color: '#666', weight: 6, dashArray: '10, 10', opacity: 0.7 }} 
+                pathOptions={{ color: '#FF4500', weight: 4, dashArray: '8, 8', opacity: 0.9 }} 
               />
             )}
 
+            {/* WALKED/RETURN PATH - Gray Solid */}
             {walkedPath.length > 0 && (
               <Polyline 
                 positions={walkedPath.map(c => [c.lat, c.lng])} 
-                pathOptions={{ color: '#FF4500', weight: 5, opacity: 0.9 }} 
+                pathOptions={{ color: '#888888', weight: 5, opacity: 0.7 }} 
               />
             )}
 
