@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
@@ -29,6 +30,10 @@ const App: React.FC = () => {
   // Manual Rotation & Lock State
   const [manualRotation, setManualRotation] = useState<number>(0);
   const [isMapLocked, setIsMapLocked] = useState<boolean>(false);
+  
+  // Heading Offset for "Head Up" logic relative to Map Rotation
+  const [headingOffset, setHeadingOffset] = useState<number>(0);
+  const latestHeading = useRef<number>(0);
 
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [pickingTarget, setPickingTarget] = useState<PickingMode>(null);
@@ -166,6 +171,8 @@ const App: React.FC = () => {
     const ev = event as any;
     if (ev.webkitCompassHeading) rawHeading = ev.webkitCompassHeading;
     else if (event.alpha !== null) rawHeading = 360 - event.alpha;
+    
+    latestHeading.current = rawHeading;
     setSensorData(prev => ({...prev, heading: rawHeading}));
   }, []);
 
@@ -358,6 +365,7 @@ const App: React.FC = () => {
     setToAddress('');
     setAiContext('');
     setManualRotation(0); // Reset manual rotation
+    setHeadingOffset(0); // Reset heading offset
     setIsMapLocked(false);
   };
 
@@ -365,7 +373,18 @@ const App: React.FC = () => {
   const handleToggleGps = () => setGpsEnabled(prev => !prev);
   const handleToggleLanguage = () => setLanguage(prev => prev === 'RU' ? 'EN' : 'RU');
   
-  const handleLockToggle = () => setIsMapLocked(prev => !prev);
+  const handleLockToggle = () => {
+    setIsMapLocked(prev => {
+      const nextState = !prev;
+      // If we are locking, or just toggling, we might want to snap the offset 
+      // so the current visual heading becomes 'Forward' (Up).
+      // This ensures that when we unlock, we don't jump back to absolute compass.
+      if (nextState) {
+        setHeadingOffset(-manualRotation - latestHeading.current);
+      }
+      return nextState;
+    });
+  };
 
   const handleLongPress = (coord: Coordinate) => {
     if (mode === AppMode.TRACKING || mode === AppMode.BACKTRACK) {
@@ -377,10 +396,29 @@ const App: React.FC = () => {
   };
   
   const handleRotateDelta = (delta: number) => {
-    setManualRotation(prev => prev + delta);
+    setManualRotation(prev => {
+      const newRot = prev + delta;
+      // When manually rotating, we want the Arrow to appear "Up" relative to the screen.
+      // This means we are re-defining what "Forward" is.
+      // ScreenAngle = (Heading + ManualRotation) = 0
+      // Heading = -ManualRotation
+      // Heading is composed of: SensorHeading + HeadingOffset
+      // So: HeadingOffset = -ManualRotation - SensorHeading
+      setHeadingOffset(-newRot - latestHeading.current);
+      return newRot;
+    });
   };
 
   const totalDistance = sensorData.steps * STEP_LENGTH;
+
+  // Calculate the display heading for the arrow.
+  // If Locked: strictly use -manualRotation (Up).
+  // If Unlocked: Use sensor data + offset.
+  // Note: Due to the offset logic above, (sensorData + offset) will approximately equal -manualRotation
+  // when we stop rotating, so it won't jump.
+  const displayHeading = isMapLocked 
+     ? -manualRotation 
+     : (sensorData.heading + headingOffset);
 
   return (
     <div className="relative w-full h-[100dvh] overflow-hidden bg-black font-mono">
@@ -404,7 +442,7 @@ const App: React.FC = () => {
         manualRotation={manualRotation}
         onRotateDelta={handleRotateDelta}
         isLocked={isMapLocked}
-        heading={isMapLocked ? -manualRotation : sensorData.heading}
+        heading={displayHeading}
       />
 
       <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_100px_rgba(0,0,0,0.8)] z-[500]" />
