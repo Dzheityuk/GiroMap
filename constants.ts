@@ -62,6 +62,7 @@ export const TRANSLATIONS = {
     calib: 'ЗАФИКСИРОВАТЬ КУРС',
     unlock: 'РАЗБЛОКИРОВАТЬ',
     resetPath: 'СБРОС ПУТИ',
+    stepLen: 'ДЛИНА ШАГА (м)',
     help: 'ИНСТРУКЦИЯ',
     helpTitle: 'КАК ПОЛЬЗОВАТЬСЯ',
     helpText: [
@@ -69,7 +70,7 @@ export const TRANSLATIONS = {
       '2. КУРС: Вращайте карту (джойстиком или двумя пальцами), чтобы выровнять маршрут "перед собой".',
       '3. ФИКСАЦИЯ: Нажмите "ЗАФИКСИРОВАТЬ КУРС". Карта застынет.',
       '4. ДВИЖЕНИЕ: Идите вперед. Датчики будут двигать вас строго по линии маршрута.',
-      '5. КОРРЕКЦИЯ: Если сбились, жмите "Я ЗДЕСЬ". Наведите перекрестие на ваше местоположение и нажмите "ТУТ" (сбоку), или выберите "ПО АДРЕСУ".'
+      '5. КОРРЕКЦИЯ: Если сбились, жмите "Я ЗДЕСЬ". Наведите перекрестие на ваше местоположение и нажмите "ТУТ". Здесь же можно настроить длину шага.'
     ]
   },
   EN: {
@@ -117,6 +118,7 @@ export const TRANSLATIONS = {
     calib: 'LOCK COURSE',
     unlock: 'UNLOCK MAP',
     resetPath: 'RESET PATH',
+    stepLen: 'STEP LENGTH (m)',
     help: 'HELP',
     helpTitle: 'HOW TO USE',
     helpText: [
@@ -124,7 +126,7 @@ export const TRANSLATIONS = {
       '2. HEADING: Rotate map (joystick or two fingers) to align route "forward".',
       '3. LOCK: Tap "LOCK COURSE". Map will freeze.',
       '4. WALK: Move forward. Sensors will move you strictly along the blue line.',
-      '5. CORRECT: Tap "I AM HERE". Aim the crosshair at your real location and tap "HERE" (on side), or choose "BY ADDRESS".'
+      '5. CORRECT: Tap "I AM HERE". Aim the crosshair at your real location and tap "HERE". You can also adjust step length here.'
     ]
   }
 };

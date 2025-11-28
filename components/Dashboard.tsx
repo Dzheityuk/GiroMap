@@ -33,6 +33,8 @@ interface DashboardProps {
   onClearPath: () => void;
   onRotateDelta: (delta: number) => void;
   pickingTarget: PickingMode;
+  stepLength: number;
+  onStepLengthChange: (v: number) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
@@ -63,7 +65,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   isMapLocked,
   onClearPath,
   onRotateDelta,
-  pickingTarget
+  pickingTarget,
+  stepLength,
+  onStepLengthChange
 }) => {
   const [showStopConfirmModal, setShowStopConfirmModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -162,6 +166,11 @@ const Dashboard: React.FC<DashboardProps> = ({
       if (!isCorrectionMode) setShowAddressInput(false);
   }, [isCorrectionMode]);
 
+  const changeStep = (delta: number) => {
+    const newVal = Math.max(0.1, Math.min(2.0, stepLength + delta));
+    onStepLengthChange(parseFloat(newVal.toFixed(2)));
+  };
+
   return (
     <>
       <style>{`
@@ -240,6 +249,18 @@ const Dashboard: React.FC<DashboardProps> = ({
                    <button onClick={onCancelCorrection} className="text-gray-500 hover:text-white px-2 font-mono text-xl">✕</button>
                 </div>
                 
+                {/* STEP LENGTH ADJUSTER */}
+                {!showAddressInput && (
+                  <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-2 px-3">
+                     <span className="text-gray-400 font-mono text-xs uppercase tracking-wide">{t.stepLen}</span>
+                     <div className="flex items-center gap-3">
+                        <button onClick={() => changeStep(-0.02)} className="w-8 h-8 rounded bg-neutral-700 text-white font-bold hover:bg-neutral-600">-</button>
+                        <span className="font-handjet text-xl text-orange-400 w-12 text-center">{stepLength.toFixed(2)}</span>
+                        <button onClick={() => changeStep(+0.02)} className="w-8 h-8 rounded bg-neutral-700 text-white font-bold hover:bg-neutral-600">+</button>
+                     </div>
+                  </div>
+                )}
+
                 {/* Mode Switcher logic */}
                 {!showAddressInput ? (
                     <div className="flex flex-row items-stretch gap-4">

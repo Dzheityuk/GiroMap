@@ -31,6 +31,9 @@ const App: React.FC = () => {
   const [manualRotation, setManualRotation] = useState<number>(0);
   const [isMapLocked, setIsMapLocked] = useState<boolean>(false);
   
+  // Step Length State (Correction)
+  const [stepLength, setStepLength] = useState<number>(STEP_LENGTH);
+  
   // Heading Offset for "Head Up" logic relative to Map Rotation
   const [headingOffset, setHeadingOffset] = useState<number>(0);
   const latestHeading = useRef<number>(0);
@@ -152,10 +155,10 @@ const App: React.FC = () => {
 
       if (plannedRoute.length > 0) {
         // MAGNET MODE: Snap strictly to polyline and move along it
-        newPos = moveAlongRoute(prevPos, plannedRoute, STEP_LENGTH);
+        newPos = moveAlongRoute(prevPos, plannedRoute, stepLength);
       } else {
         // FREE MODE: Move "UP" relative to the map's manual rotation
-        newPos = calculateNewPosition(prevPos, STEP_LENGTH, -manualRotation);
+        newPos = calculateNewPosition(prevPos, stepLength, -manualRotation);
       }
       
       setWalkedPath(prevPath => [...prevPath, newPos]);
@@ -163,7 +166,7 @@ const App: React.FC = () => {
     });
 
     setSensorData(prev => ({ ...prev, steps: prev.steps + 1, isWalking: true }));
-  }, [plannedRoute, manualRotation]);
+  }, [plannedRoute, manualRotation, stepLength]);
 
   const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
     // Compass for visual arrow rotation
@@ -409,7 +412,7 @@ const App: React.FC = () => {
     });
   };
 
-  const totalDistance = sensorData.steps * STEP_LENGTH;
+  const totalDistance = sensorData.steps * stepLength;
 
   // Calculate the display heading for the arrow.
   // If Locked: strictly use -manualRotation (Up).
@@ -491,6 +494,8 @@ const App: React.FC = () => {
           onClearPath={handleClearPath}
           onRotateDelta={handleRotateDelta} 
           pickingTarget={pickingTarget}
+          stepLength={stepLength}
+          onStepLengthChange={setStepLength}
       />
 
       {/* Legacy "Cancel" button for search picking only (From/To), not correction */}
