@@ -1,6 +1,7 @@
 {
   "short_name": "GiroMap",
-  "name": "GiroMap Navigator",
+  "name": "GiroMap: Sensor-Based Navigation",
+  "description": "Navigation using device sensors. Счисление пути для пешеходов.",
   "icons": [
     {
       "src": "icon-192.png",

@@ -1,13 +1,11 @@
-
-
 // Earth radius in meters
 export const EARTH_RADIUS = 6378137;
 
-// OpenStreetMap Tiles (Standard) - We will invert these with CSS for Dark Mode with visible text
+// OpenStreetMap Tiles (Standard)
 export const TILE_LAYER_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>';
 
-// Default Start (Moscow Red Square roughly, if Geo fails)
+// Default Start (Moscow Red Square roughly)
 export const DEFAULT_CENTER = { lat: 55.7539, lng: 37.6208 };
 
 // Step Length (Average in meters)
@@ -53,7 +51,7 @@ export const TRANSLATIONS = {
     gpsOff: 'GPS: ВЫКЛ',
     geoError: 'Не удалось найти точку назначения',
     correctionError: 'Не удалось найти адрес для коррекции',
-    byAuthor: 'BY DZHEITYUK',
+    byAuthor: 'SENSOR NAVIGATION',
     imHere: 'Я ТУТ',
     toHere: 'СЮДА',
     hereBtn: 'ТУТ',
@@ -70,7 +68,7 @@ export const TRANSLATIONS = {
       '2. КУРС: Вращайте карту (джойстиком или двумя пальцами), чтобы выровнять маршрут "перед собой".',
       '3. ФИКСАЦИЯ: Нажмите "ЗАФИКСИРОВАТЬ КУРС". Карта застынет.',
       '4. ДВИЖЕНИЕ: Идите вперед. Датчики будут двигать вас строго по линии маршрута.',
-      '5. КОРРЕКЦИЯ: Если сбились, жмите "Я ЗДЕСЬ". Наведите перекрестие на ваше местоположение и нажмите "ТУТ". Здесь же можно настроить длину шага.'
+      '5. КОРРЕКЦИЯ: Если сбились, жмите "Я ЗДЕСЬ". Наведите перекрестие на ваше местоположение и нажмите "ТУТ".'
     ]
   },
   EN: {
@@ -109,7 +107,7 @@ export const TRANSLATIONS = {
     gpsOff: 'GPS: OFF',
     geoError: 'Failed to find destination',
     correctionError: 'Failed to find correction address',
-    byAuthor: 'BY DZHEITYUK',
+    byAuthor: 'SENSOR NAVIGATION',
     imHere: 'I\'M HERE',
     toHere: 'TO HERE',
     hereBtn: 'HERE',
@@ -125,8 +123,8 @@ export const TRANSLATIONS = {
       '1. SEARCH: Tap magnifier, pick Point A and B.',
       '2. HEADING: Rotate map (joystick or two fingers) to align route "forward".',
       '3. LOCK: Tap "LOCK COURSE". Map will freeze.',
-      '4. WALK: Move forward. Sensors will move you strictly along the blue line.',
-      '5. CORRECT: Tap "I AM HERE". Aim the crosshair at your real location and tap "HERE". You can also adjust step length here.'
+      '4. WALK: Move forward. Sensors will move you strictly along the path.',
+      '5. CORRECT: Tap "I AM HERE". Aim the crosshair at your real location and tap "HERE".'
     ]
   }
 };

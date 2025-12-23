@@ -1,6 +1,6 @@
 {
-  "name": "GiroMap Web",
-  "description": "Monochrome Dead Reckoning Navigation. Simulates pedestrian tracking using device sensors without continuous GPS updates.",
+  "name": "GiroMap",
+  "description": "GiroMap — пешеходная навигация на основе датчиков (Dead Reckoning). GiroMap is a sensor-based pedestrian navigation app using dead reckoning logic.",
   "requestFramePermissions": [
     "geolocation"
   ]
