@@ -1,6 +1,6 @@
 {
-  "name": "GiroMap",
-  "description": "GiroMap — пешеходная навигация на основе датчиков (Dead Reckoning). GiroMap is a sensor-based pedestrian navigation app using dead reckoning logic.",
+  "name": "GiroMap — Пешеходная навигация",
+  "description": "Автономная навигация методом счисления пути (Dead Reckoning). Работает на датчиках движения. Разработчик: Dzheityuk. Сайт: giromap.ru. Релиз: 28.11.2025.",
   "requestFramePermissions": [
     "geolocation"
   ]

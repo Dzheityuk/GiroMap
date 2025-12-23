@@ -8,24 +8,25 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     
     <!-- Primary Meta Tags -->
-    <title>GiroMap — Пешеходная навигация по датчикам</title>
-    <meta name="title" content="GiroMap — Пешеходная навигация по датчикам" />
-    <meta name="description" content="GiroMap — инновационная монохромная навигация для пешеходов. Использует гироскоп и акселерометр вашего устройства для точного отслеживания пути методом счисления координат (Dead Reckoning) без постоянной зависимости от GPS." />
-    <meta name="keywords" content="навигация, гироскоп, шагомер, пешеход, оффлайн навигация, dead reckoning, GiroMap, навигация по датчикам, приватная навигация" />
+    <title>GiroMap — Автономная пешеходная навигация</title>
+    <meta name="title" content="GiroMap — Навигация по датчикам (Dead Reckoning)" />
+    <meta name="description" content="GiroMap: Уникальная пешеходная навигация методом счисления пути. Использует гироскоп и акселерометр для трекинга без постоянного GPS. Разработчик: Dzheityuk. Релиз: 28.11.2025." />
+    <meta name="keywords" content="GiroMap, навигация, гироскоп, без GPS, счисление пути, Dzheityuk, пешком, офлайн навигатор, dead reckoning navigation, giromap.ru" />
+    <meta name="author" content="Dzheityuk" />
 
-    <!-- Open Graph / Facebook / WhatsApp -->
+    <!-- Open Graph / Facebook / Telegram -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://giromap.ru/" />
-    <meta property="og:title" content="GiroMap — Навигация нового поколения" />
-    <meta property="og:description" content="Точная пешеходная навигация с использованием датчиков движения. Работает там, где слабый GPS. Попробуйте счисление пути в стильном монохромном интерфейсе." />
-    <meta property="og:image" content="https://giromap.ru/og-image.png" />
+    <meta property="og:title" content="GiroMap — Навигация по датчикам" />
+    <meta property="og:description" content="Пешеходная навигация методом счисления пути. Работает там, где слабый GPS. Разработчик: Dzheityuk. Релиз: 28.11.2025." />
+    <meta property="og:image" content="/icon-512.png" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://giromap.ru/" />
-    <meta property="twitter:title" content="GiroMap — Sensor-Based Pedestrian Navigation" />
-    <meta property="twitter:description" content="Monochrome dead reckoning navigation. Tracks your movement using device sensors without continuous GPS updates." />
-    <meta property="twitter:image" content="https://giromap.ru/og-image.png" />
+    <meta property="twitter:title" content="GiroMap Pedestrian Navigation" />
+    <meta property="twitter:description" content="Dead Reckoning navigation for pedestrians. Sensors-based tracking. Developer: Dzheityuk. Release: 28.11.2025." />
+    <meta property="twitter:image" content="/icon-512.png" />
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
@@ -74,7 +75,7 @@
         filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
       }
       
-      /* IOS VIEWPORT FIX */
+      /* IOS VIEWPORT FIX: Force fixed positioning to avoid Safari bottom bar scrolling issues */
       html {
         height: 100%;
         width: 100%;
@@ -91,7 +92,7 @@
         overflow: hidden;
         overscroll-behavior: none;
         font-family: 'Ubuntu Mono', monospace;
-        position: fixed;
+        position: fixed; /* Critical for iOS PWA */
         inset: 0;
       }
       
@@ -102,16 +103,18 @@
         inset: 0;
       }
 
+      /* --- FONTS --- */
       .font-rubik { font-family: 'Rubik 80s Fade', cursive; }
-      .font-handjet { font-family: 'Handjet', monospace; }
-      .font-mono { font-family: 'Ubuntu Mono', monospace; }
-      .font-gemunu { font-family: 'Gemunu Libre', sans-serif; }
-      .font-pixelify { font-family: 'Pixelify Sans', sans-serif; }
+      .font-handjet { font-family: 'Handjet', monospace; } /* Used for Buttons & Numbers */
+      .font-mono { font-family: 'Ubuntu Mono', monospace; } /* Used for General Text */
+      .font-gemunu { font-family: 'Gemunu Libre', sans-serif; } /* Splash Title */
+      .font-pixelify { font-family: 'Pixelify Sans', sans-serif; } /* Splash Author */
 
+      /* --- GLITCH EFFECT CSS (Reduced Intensity) --- */
       .glitch {
         position: relative;
         color: white;
-        font-size: 4rem;
+        font-size: 4rem; /* Base size */
       }
 
       .glitch::before,
@@ -138,18 +141,52 @@
         animation: glitch-anim-2 5s infinite linear alternate-reverse;
       }
 
+      /* Toned down animations */
       @keyframes glitch-anim {
         0% { clip: rect(31px, 9999px, 94px, 0); transform: skew(0.15deg); }
         5% { clip: rect(70px, 9999px, 11px, 0); transform: skew(0.01deg); }
         10% { clip: rect(6px, 9999px, 83px, 0); transform: skew(0.05deg); }
+        15% { clip: rect(96px, 9999px, 2px, 0); transform: skew(0.14deg); }
+        20% { clip: rect(62px, 9999px, 45px, 0); transform: skew(0.11deg); }
+        25% { clip: rect(34px, 9999px, 12px, 0); transform: skew(0.09deg); }
+        30% { clip: rect(8px, 9999px, 56px, 0); transform: skew(0.02deg); }
+        35% { clip: rect(54px, 9999px, 95px, 0); transform: skew(0.13deg); }
+        40% { clip: rect(22px, 9999px, 31px, 0); transform: skew(0.17deg); }
+        45% { clip: rect(78px, 9999px, 64px, 0); transform: skew(0.05deg); }
         50% { clip: rect(11px, 9999px, 88px, 0); transform: skew(0.15deg); }
+        55% { clip: rect(46px, 9999px, 19px, 0); transform: skew(0.02deg); }
+        60% { clip: rect(91px, 9999px, 42px, 0); transform: skew(0.18deg); }
+        65% { clip: rect(27px, 9999px, 73px, 0); transform: skew(0.11deg); }
+        70% { clip: rect(59px, 9999px, 6px, 0); transform: skew(0.19deg); }
+        75% { clip: rect(3px, 9999px, 51px, 0); transform: skew(0.03deg); }
+        80% { clip: rect(84px, 9999px, 97px, 0); transform: skew(0.02deg); }
+        85% { clip: rect(15px, 9999px, 28px, 0); transform: skew(0.12deg); }
+        90% { clip: rect(67px, 9999px, 82px, 0); transform: skew(0.18deg); }
+        95% { clip: rect(39px, 9999px, 7px, 0); transform: skew(0.01deg); }
         100% { clip: rect(93px, 9999px, 55px, 0); transform: skew(0.14deg); }
       }
 
       @keyframes glitch-anim-2 {
         0% { clip: rect(65px, 9999px, 100px, 0); transform: skew(0.05deg); }
         5% { clip: rect(12px, 9999px, 43px, 0); transform: skew(0.17deg); }
+        10% { clip: rect(88px, 9999px, 21px, 0); transform: skew(0.14deg); }
+        15% { clip: rect(5px, 9999px, 76px, 0); transform: skew(0.02deg); }
+        20% { clip: rect(53px, 9999px, 15px, 0); transform: skew(0.08deg); }
+        25% { clip: rect(29px, 9999px, 92px, 0); transform: skew(0.13deg); }
+        30% { clip: rect(74px, 9999px, 58px, 0); transform: skew(0.01deg); }
+        35% { clip: rect(9px, 9999px, 34px, 0); transform: skew(0.16deg); }
+        40% { clip: rect(96px, 9999px, 6px, 0); transform: skew(0.09deg); }
+        45% { clip: rect(41px, 9999px, 85px, 0); transform: skew(0.12deg); }
         50% { clip: rect(18px, 9999px, 50px, 0); transform: skew(0.08deg); }
+        55% { clip: rect(61px, 9999px, 27px, 0); transform: skew(0.15deg); }
+        60% { clip: rect(83px, 9999px, 94px, 0); transform: skew(0.09deg); }
+        65% { clip: rect(36px, 9999px, 11px, 0); transform: skew(0.12deg); }
+        70% { clip: rect(2px, 9999px, 69px, 0); transform: skew(0.11deg); }
+        75% { clip: rect(48px, 9999px, 38px, 0); transform: skew(0.07deg); }
+        80% { clip: rect(92px, 9999px, 79px, 0); transform: skew(0.15deg); }
+        85% { clip: rect(24px, 9999px, 63px, 0); transform: skew(0.04deg); }
+        90% { clip: rect(57px, 9999px, 17px, 0); transform: skew(0.05deg); }
+        95% { clip: rect(10px, 9999px, 99px, 0); transform: skew(0.18deg); }
         100% { clip: rect(71px, 9999px, 47px, 0); transform: skew(0.05deg); }
       }
     </style>

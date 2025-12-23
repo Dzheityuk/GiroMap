@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
@@ -25,11 +27,14 @@ const App: React.FC = () => {
   const [sensorData, setSensorData] = useState<SensorData>({ steps: 0, heading: 0, isWalking: false });
   const [permissionsGranted, setPermissionsGranted] = useState<boolean>(false);
 
+  // Manual Rotation & Lock State
   const [manualRotation, setManualRotation] = useState<number>(0);
   const [isMapLocked, setIsMapLocked] = useState<boolean>(false);
   
+  // Step Length State (Correction)
   const [stepLength, setStepLength] = useState<number>(STEP_LENGTH);
   
+  // Heading Offset for "Head Up" logic relative to Map Rotation
   const [headingOffset, setHeadingOffset] = useState<number>(0);
   const latestHeading = useRef<number>(0);
 
@@ -69,10 +74,11 @@ const App: React.FC = () => {
   }, [gpsEnabled, mode, fromAddress]);
 
 
-  // --- PATH LOGIC ---
+  // --- STRICT MAGNETIC PATH LOGIC ---
   const moveAlongRoute = (currentPos: Coordinate, route: Coordinate[], dist: number): Coordinate => {
     if (route.length < 2) return currentPos;
 
+    // 1. Find the closest segment on the polyline to the current position
     let closestSegmentIndex = 0;
     let minDistanceToSegment = Infinity;
     let snappedPoint: Coordinate = currentPos;
@@ -81,6 +87,8 @@ const App: React.FC = () => {
         const p1 = route[i];
         const p2 = route[i + 1];
         
+        // Project currentPos onto segment p1-p2
+        // Simplification: Treat lat/lng as Cartesian for projection ratio
         const dx = p2.lng - p1.lng;
         const dy = p2.lat - p1.lat;
         const lengthSq = dx*dx + dy*dy;
@@ -89,7 +97,7 @@ const App: React.FC = () => {
         if (lengthSq > 0) {
             t = ((currentPos.lng - p1.lng) * dx + (currentPos.lat - p1.lat) * dy) / lengthSq;
         }
-        t = Math.max(0, Math.min(1, t)); 
+        t = Math.max(0, Math.min(1, t)); // Clamp to segment
 
         const projLng = p1.lng + t * dx;
         const projLat = p1.lat + t * dy;
@@ -102,6 +110,9 @@ const App: React.FC = () => {
             snappedPoint = projPoint;
         }
     }
+
+    // 2. We now have the snapped point on the closest segment (index).
+    // Move 'dist' meters along the polyline starting from 'snappedPoint'.
     
     let remainingDist = dist;
     let currentSegmentIdx = closestSegmentIndex;
@@ -112,16 +123,18 @@ const App: React.FC = () => {
         const distToNext = getDistance(currentPoint, nextVertex);
 
         if (remainingDist <= distToNext) {
+            // Destination is on this segment
             const bearing = calculateBearing(currentPoint, nextVertex);
             return calculateNewPosition(currentPoint, remainingDist, bearing);
         } else {
+            // Overshoot this segment, move to vertex and continue
             remainingDist -= distToNext;
             currentPoint = nextVertex;
             currentSegmentIdx++;
         }
     }
 
-    return currentPoint;
+    return currentPoint; // End of route reached
   };
 
   const calculateBearing = (start: Coordinate, end: Coordinate): number => {
@@ -141,8 +154,10 @@ const App: React.FC = () => {
       let newPos: Coordinate;
 
       if (plannedRoute.length > 0) {
+        // MAGNET MODE: Snap strictly to polyline and move along it
         newPos = moveAlongRoute(prevPos, plannedRoute, stepLength);
       } else {
+        // FREE MODE: Move "UP" relative to the map's manual rotation
         newPos = calculateNewPosition(prevPos, stepLength, -manualRotation);
       }
       
@@ -154,6 +169,7 @@ const App: React.FC = () => {
   }, [plannedRoute, manualRotation, stepLength]);
 
   const handleOrientation = useCallback((event: DeviceOrientationEvent) => {
+    // Compass for visual arrow rotation
     let rawHeading = 0;
     const ev = event as any;
     if (ev.webkitCompassHeading) rawHeading = ev.webkitCompassHeading;
@@ -266,7 +282,7 @@ const App: React.FC = () => {
           const endResult = await geocodeAddress(toAddress);
           if (endResult) await updateRoute(newPos, endResult.coord);
       }
-      setPickingTarget(null);
+      setPickingTarget(null); // Exit correction mode
       setCorrectionInput('');
     } else { alert(TRANSLATIONS[language].correctionError); }
     setIsSearching(false);
@@ -277,9 +293,12 @@ const App: React.FC = () => {
       const addr = await reverseGeocode(coord);
       if (pickingTarget === 'from') { setFromAddress(addr); setUserPosition(coord); setMapCenter(coord); setPickingTarget(null); }
       else if (pickingTarget === 'to') { setToAddress(addr); setPickingTarget(null); }
+      // NOTE: For 'correction', we don't just pick immediately on click anymore, 
+      // we use the crosshair + confirm button flow, so map click does nothing or just centers.
     }
   };
 
+  // Triggers the correction mode UI (Crosshair + Bottom Panel)
   const handleStartCorrection = () => {
       setPickingTarget('correction');
   };
@@ -348,8 +367,8 @@ const App: React.FC = () => {
     setFromAddress('');
     setToAddress('');
     setAiContext('');
-    setManualRotation(0);
-    setHeadingOffset(0);
+    setManualRotation(0); // Reset manual rotation
+    setHeadingOffset(0); // Reset heading offset
     setIsMapLocked(false);
   };
 
@@ -360,6 +379,9 @@ const App: React.FC = () => {
   const handleLockToggle = () => {
     setIsMapLocked(prev => {
       const nextState = !prev;
+      // If we are locking, or just toggling, we might want to snap the offset 
+      // so the current visual heading becomes 'Forward' (Up).
+      // This ensures that when we unlock, we don't jump back to absolute compass.
       if (nextState) {
         setHeadingOffset(-manualRotation - latestHeading.current);
       }
@@ -379,6 +401,12 @@ const App: React.FC = () => {
   const handleRotateDelta = (delta: number) => {
     setManualRotation(prev => {
       const newRot = prev + delta;
+      // When manually rotating, we want the Arrow to appear "Up" relative to the screen.
+      // This means we are re-defining what "Forward" is.
+      // ScreenAngle = (Heading + ManualRotation) = 0
+      // Heading = -ManualRotation
+      // Heading is composed of: SensorHeading + HeadingOffset
+      // So: HeadingOffset = -ManualRotation - SensorHeading
       setHeadingOffset(-newRot - latestHeading.current);
       return newRot;
     });
@@ -386,6 +414,11 @@ const App: React.FC = () => {
 
   const totalDistance = sensorData.steps * stepLength;
 
+  // Calculate the display heading for the arrow.
+  // If Locked: strictly use -manualRotation (Up).
+  // If Unlocked: Use sensor data + offset.
+  // Note: Due to the offset logic above, (sensorData + offset) will approximately equal -manualRotation
+  // when we stop rotating, so it won't jump.
   const displayHeading = isMapLocked 
      ? -manualRotation 
      : (sensorData.heading + headingOffset);
@@ -431,6 +464,7 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* Dashboard handles normal mode AND correction mode UI now */}
       <Dashboard 
           mode={mode}
           sensorData={sensorData}
@@ -464,6 +498,7 @@ const App: React.FC = () => {
           onStepLengthChange={setStepLength}
       />
 
+      {/* Legacy "Cancel" button for search picking only (From/To), not correction */}
       {(pickingTarget === 'from' || pickingTarget === 'to') && (
         <div className="absolute bottom-10 left-0 right-0 z-[1000] flex justify-center pb-[env(safe-area-inset-bottom)]">
            <button 

@@ -1,11 +1,12 @@
+
 // Earth radius in meters
 export const EARTH_RADIUS = 6378137;
 
-// OpenStreetMap Tiles (Standard)
+// OpenStreetMap Tiles (Standard) - We will invert these with CSS for Dark Mode with visible text
 export const TILE_LAYER_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>';
 
-// Default Start (Moscow Red Square roughly)
+// Default Start (Moscow Red Square roughly, if Geo fails)
 export const DEFAULT_CENTER = { lat: 55.7539, lng: 37.6208 };
 
 // Step Length (Average in meters)
@@ -51,7 +52,7 @@ export const TRANSLATIONS = {
     gpsOff: 'GPS: ВЫКЛ',
     geoError: 'Не удалось найти точку назначения',
     correctionError: 'Не удалось найти адрес для коррекции',
-    byAuthor: 'SENSOR NAVIGATION',
+    byAuthor: 'BY DZHEITYUK',
     imHere: 'Я ТУТ',
     toHere: 'СЮДА',
     hereBtn: 'ТУТ',
@@ -62,8 +63,10 @@ export const TRANSLATIONS = {
     resetPath: 'СБРОС ПУТИ',
     stepLen: 'ДЛИНА ШАГА (м)',
     help: 'ИНСТРУКЦИЯ',
-    helpTitle: 'КАК ПОЛЬЗОВАТЬСЯ',
+    helpTitle: 'GIROMAP (GIROMAP.RU)',
     helpText: [
+      'Разработчик: Dzheityuk',
+      'Релиз: 28.11.2025',
       '1. ПОИСК: Нажмите на лупу, выберите точку А и Б.',
       '2. КУРС: Вращайте карту (джойстиком или двумя пальцами), чтобы выровнять маршрут "перед собой".',
       '3. ФИКСАЦИЯ: Нажмите "ЗАФИКСИРОВАТЬ КУРС". Карта застынет.',
@@ -107,7 +110,7 @@ export const TRANSLATIONS = {
     gpsOff: 'GPS: OFF',
     geoError: 'Failed to find destination',
     correctionError: 'Failed to find correction address',
-    byAuthor: 'SENSOR NAVIGATION',
+    byAuthor: 'BY DZHEITYUK',
     imHere: 'I\'M HERE',
     toHere: 'TO HERE',
     hereBtn: 'HERE',
@@ -118,12 +121,14 @@ export const TRANSLATIONS = {
     resetPath: 'RESET PATH',
     stepLen: 'STEP LENGTH (m)',
     help: 'HELP',
-    helpTitle: 'HOW TO USE',
+    helpTitle: 'GIROMAP (GIROMAP.RU)',
     helpText: [
+      'Developer: Dzheityuk',
+      'Release: 28.11.2025',
       '1. SEARCH: Tap magnifier, pick Point A and B.',
       '2. HEADING: Rotate map (joystick or two fingers) to align route "forward".',
       '3. LOCK: Tap "LOCK COURSE". Map will freeze.',
-      '4. WALK: Move forward. Sensors will move you strictly along the path.',
+      '4. WALK: Move forward. Sensors will move you strictly along the route.',
       '5. CORRECT: Tap "I AM HERE". Aim the crosshair at your real location and tap "HERE".'
     ]
   }
