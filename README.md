@@ -1,20 +1,61 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+GiroMap
 
-# Run and deploy your AI Studio app
+GiroMap — экспериментальное веб-приложение пешеходной навигации, работающее по принципу Dead Reckoning (счисление пути).
+Определение перемещения выполняется на основе данных гироскопа и акселерометра без постоянной зависимости от GPS.
 
-This contains everything you need to run your app locally.
+Проект ориентирован на сценарии, где GPS нестабилен или недоступен: плотная городская застройка, подземные пространства, переходы, ТЦ.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1Fxi7gTS1yucoQQeu-jtEvf2OSscXo7KK
+Основная идея
 
-## Run Locally
+Вместо классической GPS-навигации используется модель:
 
-**Prerequisites:**  Node.js
+направление движения — по гироскопу,
+
+шаги и ускорение — по акселерометру,
+
+начальная точка задаётся пользователем,
+
+дальнейшее положение вычисляется локально.
+
+Приложение не требует серверной обработки и может работать офлайн.
+
+Возможности
+
+Пешеходная навигация без постоянного GPS
+
+Работа в офлайн-режиме
+
+Отображение маршрута на карте
+
+Тёмная монохромная тема
+
+Инверсия карты для ночного режима
+
+Поддержка PWA (установка на устройство)
+
+Оптимизация под iOS Safari и standalone-режим
+
+Технологический стек
+
+React
+
+TypeScript
+
+Leaflet / React-Leaflet
+
+TailwindCSS
+
+PWA (Web App Manifest)
+
+Mobile Sensors API (Gyroscope, Accelerometer)
 
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+
+
+/
+├── index.html        # HTML shell + meta / PWA
+├── index.tsx         # Точка входа React
+├── manifest.json     # PWA manifest
+├── public/
+│   └── icons/        # Иконки приложения
+└── styles / logic    # UI и логика навигации
