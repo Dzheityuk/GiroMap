@@ -66,14 +66,17 @@ export const TRANSLATIONS = {
     helpTitle: 'GIROMAP (GIROMAP.RU)',
     supportBtn: 'ПОМОЩЬ ПРОЕКТУ',
     helpText: [
-      'Разработчик: Dzheityuk. Релиз: 28.11.2025',
-      '1. ПОИСК: Нажмите на лупу, выберите точки А и Б.',
-      '2. КУРС: Вращайте карту, чтобы выровнять маршрут "перед собой".',
-      '3. ФИКСАЦИЯ: Нажмите "ЗАФИКСИРОВАТЬ КУРС". Карта застынет.',
-      '4. ДВИЖЕНИЕ: Идите вперед. Датчики будут вести вас по линии.',
-      '5. КОРРЕКЦИЯ: Если сбились, жмите "Я ЗДЕСЬ" -> "ТУТ".',
-      '6. GPS: Кнопка GPS (справа снизу) позволяет определить местоположение автоматически при наличии сигнала.',
-      '7. iOS PWA: Нажмите кнопку «Поделиться» в Safari и выберите «На экран Домой» для полноценной работы.'
+      'GiroMap — навигация методом счисления пути (Dead Reckoning).',
+      '• ПОИСК (Лупа): Выбор точек А и Б. ИИ DeepSeek выдает краткую справку о месте назначения.',
+      '• КУРС (Джойстик): Вращайте карту, чтобы совместить линию маршрута с направлением вашего взгляда («вверх»).',
+      '• ФИКСАЦИЯ (Lock): Кнопка «ЗАФИКСИРОВАТЬ КУРС» замораживает карту. Устройство превращается в стабильный гирокомпас.',
+      '• ДВИЖЕНИЕ: Просто идите. Акселерометр считает шаги и перемещает вас по линии маршрута без участия GPS.',
+      '• КОРРЕКЦИЯ (Я ЗДЕСЬ): Если позиция сбилась, нажмите «Я ЗДЕСЬ» -> «ТУТ», наведя перекрестие на ваше реальное положение.',
+      '• ДЛИНА ШАГА: В режиме коррекции можно настроить длину шага (м) для более точного перемещения под ваш темп.',
+      '• GPS: Используется только для начальной привязки или экстренной проверки (кнопка в углу).',
+      '• ТУТ/СЮДА: Быстрое назначение старта или финиша по центру экрана в режиме планирования.',
+      '• СБРОС ПУТИ: Очищает серый след пройденного вами пути.',
+      '• iOS: Для корректного доступа к датчикам используйте Safari -> «Поделиться» -> «На экран Домой».'
     ]
   },
   EN: {
@@ -126,14 +129,17 @@ export const TRANSLATIONS = {
     helpTitle: 'GIROMAP (GIROMAP.RU)',
     supportBtn: 'SUPPORT PROJECT',
     helpText: [
-      'Developer: Dzheityuk. Release: 28.11.2025',
-      '1. SEARCH: Tap magnifier, pick points A and B.',
-      '2. HEADING: Rotate map to align route "forward".',
-      '3. LOCK: Tap "LOCK COURSE". Map will freeze.',
-      '4. WALK: Move forward. Sensors will guide you along the path.',
-      '5. CORRECT: Tap "I AM HERE" -> "HERE".',
-      '6. GPS: The GPS button (bottom right) finds your location automatically when signal is available.',
-      '7. iOS PWA: Tap "Share" in Safari and select "Add to Home Screen" for the best experience.'
+      'GiroMap — Dead Reckoning pedestrian navigation.',
+      '• SEARCH (Magnifier): Pick points A and B. DeepSeek AI provides a short fact about your destination.',
+      '• COURSE (Joystick): Rotate the map to align the route line vertically (pointing "forward").',
+      '• LOCK: "LOCK COURSE" freezes map rotation. Your device now acts as a stable gyroscopic guide.',
+      '• MOVEMENT: Just walk forward. Accelerometer counts steps and moves you along the path without GPS.',
+      '• CORRECTION (I\'M HERE): If you drift, use "HERE" button while aiming the center at your real spot.',
+      '• STEP LENGTH: Adjust your step size (m) in correction mode for better movement accuracy.',
+      '• GPS: Use it for initial calibration or emergency location sync (corner button).',
+      '• HERE/TO HERE: Quick set start/finish based on the current screen center.',
+      '• RESET PATH: Clears the trail of your walked movement.',
+      '• iOS: For sensor access, use Safari -> "Share" -> "Add to Home Screen".'
     ]
   }
 };
