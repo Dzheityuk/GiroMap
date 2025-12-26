@@ -64,14 +64,16 @@ export const TRANSLATIONS = {
     stepLen: 'ДЛИНА ШАГА (м)',
     help: 'ИНСТРУКЦИЯ',
     helpTitle: 'GIROMAP (GIROMAP.RU)',
+    supportBtn: 'ПОМОЩЬ ПРОЕКТУ',
     helpText: [
-      'Разработчик: Dzheityuk',
-      'Релиз: 28.11.2025',
-      '1. ПОИСК: Нажмите на лупу, выберите точку А и Б.',
-      '2. КУРС: Вращайте карту (джойстиком или двумя пальцами), чтобы выровнять маршрут "перед собой".',
+      'Разработчик: Dzheityuk. Релиз: 28.11.2025',
+      '1. ПОИСК: Нажмите на лупу, выберите точки А и Б.',
+      '2. КУРС: Вращайте карту, чтобы выровнять маршрут "перед собой".',
       '3. ФИКСАЦИЯ: Нажмите "ЗАФИКСИРОВАТЬ КУРС". Карта застынет.',
-      '4. ДВИЖЕНИЕ: Идите вперед. Датчики будут двигать вас строго по линии маршрута.',
-      '5. КОРРЕКЦИЯ: Если сбились, жмите "Я ЗДЕСЬ". Наведите перекрестие на ваше местоположение и нажмите "ТУТ".'
+      '4. ДВИЖЕНИЕ: Идите вперед. Датчики будут вести вас по линии.',
+      '5. КОРРЕКЦИЯ: Если сбились, жмите "Я ЗДЕСЬ" -> "ТУТ".',
+      '6. GPS: Кнопка GPS (справа снизу) позволяет определить местоположение автоматически при наличии сигнала.',
+      '7. iOS PWA: Нажмите кнопку «Поделиться» в Safari и выберите «На экран Домой» для полноценной работы.'
     ]
   },
   EN: {
@@ -122,14 +124,16 @@ export const TRANSLATIONS = {
     stepLen: 'STEP LENGTH (m)',
     help: 'HELP',
     helpTitle: 'GIROMAP (GIROMAP.RU)',
+    supportBtn: 'SUPPORT PROJECT',
     helpText: [
-      'Developer: Dzheityuk',
-      'Release: 28.11.2025',
-      '1. SEARCH: Tap magnifier, pick Point A and B.',
-      '2. HEADING: Rotate map (joystick or two fingers) to align route "forward".',
+      'Developer: Dzheityuk. Release: 28.11.2025',
+      '1. SEARCH: Tap magnifier, pick points A and B.',
+      '2. HEADING: Rotate map to align route "forward".',
       '3. LOCK: Tap "LOCK COURSE". Map will freeze.',
-      '4. WALK: Move forward. Sensors will move you strictly along the route.',
-      '5. CORRECT: Tap "I AM HERE". Aim the crosshair at your real location and tap "HERE".'
+      '4. WALK: Move forward. Sensors will guide you along the path.',
+      '5. CORRECT: Tap "I AM HERE" -> "HERE".',
+      '6. GPS: The GPS button (bottom right) finds your location automatically when signal is available.',
+      '7. iOS PWA: Tap "Share" in Safari and select "Add to Home Screen" for the best experience.'
     ]
   }
 };

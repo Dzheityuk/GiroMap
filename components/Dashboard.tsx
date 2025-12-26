@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
 import { AppMode, SensorData, Language, PickingMode } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -207,7 +206,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* 
           VIRTUAL JOYSTICK (Bottom Right) 
-          MOVED UP: bottom-40 -> bottom-64 to clear the panels
       */}
       <div 
         className={`absolute right-8 bottom-64 z-[1100] touch-none ${isMapLocked ? 'opacity-30 grayscale pointer-events-none' : 'opacity-90'}`}
@@ -313,7 +311,7 @@ const Dashboard: React.FC<DashboardProps> = ({
          </div>
       )}
 
-      {/* STANDARD BOTTOM BAR (Hidden during Correction Mode) */}
+      {/* STANDARD BOTTOM BAR */}
       {!isCorrectionMode && (
       <div className="absolute bottom-0 left-0 right-0 z-[1000] flex flex-col pointer-events-none">
         
@@ -414,21 +412,33 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* HELP MODAL */}
       {showHelpModal && (
         <div className="absolute inset-0 z-[3000] bg-black/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-           <div className="w-full max-w-sm bg-neutral-900 border border-neutral-700 p-6 rounded-2xl shadow-2xl relative">
+           <div className="w-full max-w-sm bg-neutral-900 border border-neutral-700 p-6 rounded-2xl shadow-2xl relative flex flex-col max-h-[80vh]">
               <button 
                 onClick={() => setShowHelpModal(false)}
-                className="absolute top-3 right-3 text-gray-500 hover:text-white"
+                className="absolute top-3 right-3 text-gray-500 hover:text-white z-10"
               >✕</button>
               
-              <h3 className="text-white text-2xl font-handjet font-bold mb-4 border-b border-white/10 pb-2">
+              <h3 className="text-white text-2xl font-handjet font-bold mb-4 border-b border-white/10 pb-2 flex-shrink-0">
                 {t.helpTitle}
               </h3>
               
-              <ul className="text-gray-300 font-mono text-sm space-y-3 leading-relaxed">
-                {(t.helpText as string[]).map((line, i) => (
-                  <li key={i}>{line}</li>
-                ))}
-              </ul>
+              <div className="overflow-y-auto pr-2 custom-scrollbar mb-6">
+                <ul className="text-gray-300 font-mono text-sm space-y-3 leading-relaxed">
+                  {(t.helpText as string[]).map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* SUPPORT PROJECT BUTTON */}
+              <a 
+                href="https://dalink.to/dzheityuk" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full bg-white text-black py-4 rounded-xl text-center font-handjet font-bold text-xl uppercase tracking-widest shadow-lg hover:bg-gray-200 active:scale-[0.98] transition-all flex-shrink-0"
+              >
+                {t.supportBtn}
+              </a>
            </div>
         </div>
       )}
