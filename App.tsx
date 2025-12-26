@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import MapComponent from './components/MapComponent';
 import Dashboard from './components/Dashboard';
@@ -8,6 +7,86 @@ import { AppMode, Coordinate, SensorData, SearchResult, Language, PickingMode } 
 import { calculateNewPosition, reverseGeocode, getDistance } from './services/geoUtils';
 import { getDestinationInfo } from './services/geminiService';
 import { DEFAULT_CENTER, STEP_LENGTH, MOTION_THRESHOLD, TRANSLATIONS } from './constants';
+
+// --- PWA INSTALL PROMPT COMPONENT ---
+const InstallPrompt: React.FC<{ language: Language }> = ({ language }) => {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  const t = TRANSLATIONS[language];
+
+  useEffect(() => {
+    // Check if already installed
+    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    setIsStandalone(isStandaloneMode);
+
+    // Detect iOS
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    setIsIOS(isIOSDevice);
+
+    // Capture Android/Chrome prompt
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      // Show prompt after a short delay
+      setTimeout(() => setIsVisible(true), 3000);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Show iOS prompt after delay if not standalone
+    if (isIOSDevice && !isStandaloneMode) {
+      setTimeout(() => setIsVisible(true), 4000);
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+      setIsVisible(false);
+    }
+  };
+
+  if (!isVisible || isStandalone) return null;
+
+  return (
+    <div className="fixed bottom-32 left-4 right-4 z-[5000] bg-neutral-900/95 backdrop-blur-xl border border-white/20 p-4 rounded-2xl shadow-2xl flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-10 duration-500">
+      <div className="flex justify-between items-start">
+        <div className="flex flex-col">
+          <span className="text-orange-500 font-handjet font-bold text-xl uppercase tracking-widest leading-none">{t.installTitle}</span>
+          <span className="text-gray-400 font-mono text-xs mt-1 leading-tight">
+            {isIOS ? t.installIOS : t.installAndroid}
+          </span>
+        </div>
+        <button onClick={() => setIsVisible(false)} className="text-gray-500 hover:text-white font-mono p-1">✕</button>
+      </div>
+
+      {isIOS ? (
+        <div className="flex justify-center py-2 opacity-80">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+            <polyline points="16 6 12 2 8 6"></polyline>
+            <line x1="12" y1="2" x2="12" y2="15"></line>
+          </svg>
+        </div>
+      ) : (
+        <button 
+          onClick={handleInstallClick}
+          className="bg-white text-black font-handjet font-bold text-lg uppercase py-2 rounded-xl active:scale-95 transition-transform"
+        >
+          {t.installBtn}
+        </button>
+      )}
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   // --- State ---
@@ -497,6 +576,9 @@ const App: React.FC = () => {
           stepLength={stepLength}
           onStepLengthChange={setStepLength}
       />
+
+      {/* PWA Install Prompt */}
+      <InstallPrompt language={language} />
 
       {/* Legacy "Cancel" button for search picking only (From/To), not correction */}
       {(pickingTarget === 'from' || pickingTarget === 'to') && (

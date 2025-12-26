@@ -65,6 +65,10 @@ export const TRANSLATIONS = {
     help: 'ИНСТРУКЦИЯ',
     helpTitle: 'GIROMAP (GIROMAP.RU)',
     supportBtn: 'ПОМОЩЬ ПРОЕКТУ',
+    installBtn: 'УСТАНОВИТЬ ПРИЛОЖЕНИЕ',
+    installTitle: 'Установка GiroMap',
+    installIOS: 'Нажмите «Поделиться», затем «На экран Домой»',
+    installAndroid: 'Нажмите кнопку ниже для установки на главный экран',
     helpText: [
       'GiroMap — навигация методом счисления пути (Dead Reckoning).',
       '• ПОИСК (Лупа): Выбор точек А и Б. ИИ DeepSeek выдает краткую справку о месте назначения.',
@@ -128,6 +132,10 @@ export const TRANSLATIONS = {
     help: 'HELP',
     helpTitle: 'GIROMAP (GIROMAP.RU)',
     supportBtn: 'SUPPORT PROJECT',
+    installBtn: 'INSTALL APP',
+    installTitle: 'Install GiroMap',
+    installIOS: 'Tap "Share", then "Add to Home Screen"',
+    installAndroid: 'Tap the button below to install on your home screen',
     helpText: [
       'GiroMap — Dead Reckoning pedestrian navigation.',
       '• SEARCH (Magnifier): Pick points A and B. DeepSeek AI provides a short fact about your destination.',
